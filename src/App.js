@@ -1,4 +1,3 @@
-import './App.css';
 import ReactECharts from 'echarts-for-react';
 import React from 'react';
 import { io } from "socket.io-client";
@@ -9,26 +8,21 @@ class App extends React.Component {
   componentDidMount() {
 
     const myChart = this.echartRef.getEchartsInstance();
-    let data = []
-    let count = []
+    let data = [];
     let dataX = [];
     let delay = 1000;
 
     socket.on('yCoordinates', (socket) => {
-      //console.log(socket.yCoordinates)
-      dataX.push(parseInt(socket.xCoordinates));
+      console.log(socket.yCoordinates)
+      dataX.push(socket.xCoordinates);
       data.push({ name: socket.xCoordinates, value: [socket.xCoordinates, socket.yCoordinates] });
-
-
-
-      count++;
+      console.log(data)
     })
     setInterval(function () {
 
       myChart.setOption({
         xAxis: {
           type: 'value',
-          //min:dataX[0],
           max: dataX[dataX.length - 1] + 1,
         },
         series: [{
@@ -38,7 +32,6 @@ class App extends React.Component {
       });
 
     }, delay);
-
   }
 
   getOption() {
