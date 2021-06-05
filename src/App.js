@@ -14,10 +14,6 @@ class App extends React.Component {
     let name;
     let name_s = [];
     socket.on('logging', (socket) => {
-      console.log(socket)
-      //console.log(socket.yCoordinates)
-      //dataX.push(socket.xCoordinates);
-      //console.log(socket)
       name = socket.name
       if(name_s.length == 0){
         name_s.push(name)
@@ -27,30 +23,16 @@ class App extends React.Component {
       if(name_s[name_s.length - 1 ] != socket.name){
         name_s.push(name)
         data[name] = []
-        
       }
       data[name].push({name: Date.now(), value: [socket.xCoordinates, socket.yCoordinates]})
-
-      //data.push({name:[ name: socket.xCoordinates, value: [socket.xCoordinates, socket.yCoordinates] ]});
-      //console.log(data)
-      //console.log(data[data.length - 1].value[data[data.length - 1].value.length - 2] + 1)
     })
 
     setInterval(function () {
-      //console.log(data[name])
       if (data[name] != undefined) {
-        //console.log(data[name_s[name_s.length - 2]].data)
-        //console.log(name_s)
-        // console.log(data[name].data)
-        // console.log(data[name].data[data[name].data.length -1][0])
-        console.log(data[name_s[0]][data[name_s[0]].length - 1].value[0])
         myChart.setOption({
           xAxis: {
             type: 'value',
             max: data[name_s[0]][data[name_s[0]].length - 1].value[0]
-            //max: 100
-            //max: data[data.length - 1].value[data[data.length - 1].value.length - 2] + 1
-           // max: data[name].data[data[name].data.length - 1][0]
           },
           series: [{
             name: name,
