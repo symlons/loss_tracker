@@ -13,6 +13,7 @@ class App extends React.Component {
     let delay = 1000;
     let name;
     let name_s = [];
+
     socket.on('logging', (socket) => {
       name = socket.name
       if(name_s.length == 0){
@@ -24,9 +25,20 @@ class App extends React.Component {
         name_s.push(name)
         data[name] = []
       }
-      data[name].push({name: Date.now(), value: [socket.xCoordinates, socket.yCoordinates]})
-    })
+      if(socket.xCoordinates.length == undefined){
+        console.log('undefined')
+        data[name].push({name: Date.now(), value: [socket.xCoordinates, socket.yCoordinates]})
+        console.log(data[name_s[0]][data[name_s[0]].length - 1].value[1])
 
+      }else{
+        console.log('else')
+      for(let i = 0; i < socket.xCoordinates.length; i++){
+        data[name].push({name: Date.now(), value: [socket.xCoordinates[i], socket.yCoordinates[i]]})
+      }
+      console.log(data[name_s[0]][data[name_s[0]].length - 1].value[1])
+
+    }
+    })
     setInterval(function () {
       if (data[name] != undefined) {
         myChart.setOption({
@@ -70,7 +82,7 @@ class App extends React.Component {
       },
       yAxis: {
         type: 'value',
-        interval: 0.5
+        interval: 0.5 // should be adjusted according to the data type
       },
       series: [{
         showSymbol: false,
