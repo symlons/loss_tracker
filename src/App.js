@@ -10,6 +10,8 @@ class App extends React.Component {
     this.state = {
       data: {},
       name: "",
+      name_s: [],
+      query_name: "",
     };
   }
   componentDidMount() {
@@ -22,7 +24,6 @@ class App extends React.Component {
 
     socket.on("logging", (socket) => {
       name = socket.name;
-      console.log(name);
       if (name_s.length == 0) {
         name_s.push(name);
         data[name] = [];
@@ -44,27 +45,46 @@ class App extends React.Component {
           });
         }
       }
-      this.setState({ data, name: name });
-      console.log(this.state.data);
+      this.setState({ data, name: name, name_s });
     });
 
-    setInterval(function () {
-      if (data[name] != undefined) {
+    setInterval(() => {
+      let new_max, new_data, new_name;
+      if (name == undefined && this.state.query_name !== undefined) {
+        if (this.state.data[this.state.query_name] != undefined) {
+          new_max =
+            this.state.data[this.state.query_name][
+              this.state.data[this.state.query_name].length - 1
+            ].value[0];
+          new_name = this.state.query_name;
+          new_data = this.state.data[this.state.query_name];
+          console.log("aaa");
+          console.log(this.state);
+        }
+      } else {
+        console.log("bbb");
+        console.log(this.state);
+        new_name = name;
+        new_data = data[name];
+        new_max = data[name_s[0]][data[name_s[0]].length - 1].value[0];
+      }
+
+      if (new_data !== undefined) {
         myChart.setOption({
           xAxis: {
             type: "value",
-            max: data[name_s[0]][data[name_s[0]].length - 1].value[0],
+            max: new_max,
           },
           series: [
             {
-              name: name,
-              id: name,
+              name: new_name,
+              id: new_name,
               type: "line",
               showSymbol: false,
               /*itemStyle: {
               color: name
             },*/
-              data: data[name],
+              data: new_data,
 
               animationThreshold: 10000,
             },
@@ -73,6 +93,49 @@ class App extends React.Component {
       }
     }, delay);
   }
+  handleChange = async (event) => {
+    const target = event.target;
+    const user = this.state.user;
+    let query_name = target.value;
+    query_name = query_name.toString();
+    await this.setState({
+      query_name,
+    });
+  };
+
+  handleSubmit = async (event) => {
+    event.preventDefault();
+    let response, body;
+    /*response = await fetch("/csrf", {
+      method: "GET",
+      // creadentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    body = await response.json();*/
+    let query_name = this.state.query_name;
+    response = await fetch("/query", {
+      method: "POST", // or 'PUT',
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        //    "csrf-token": body.csrfToken,
+      },
+      body: JSON.stringify({ query_name }),
+    });
+
+    if (response.status == 200) {
+      body = await response.json();
+      let data_name = body[body.name];
+      console.log("query");
+      console.log(body);
+      console.log(data_name);
+      this.setState({ data: body });
+    } else {
+    }
+  };
 
   getOption() {
     let option = {
@@ -109,6 +172,7 @@ class App extends React.Component {
   store = async () => {
     let data = this.state.data;
     let name = this.state.name;
+    let name_s = this.state.name_s;
     //data.s[95].value[0] = "<script>hallo</script>hallo";
     //for testing against xss
     let response = await fetch("/store", {
@@ -116,10 +180,9 @@ class App extends React.Component {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ data, name }),
+      body: JSON.stringify({ data, name, name_s }),
     });
     let body = await response.text();
-    console.log(body);
   };
   render() {
     return (
@@ -136,7 +199,24 @@ class App extends React.Component {
           option={this.getOption()}
           opts={{ renderer: "svg" }}
         />
-        <button onClick={this.store}>Store results</button>
+        <div className="inline-block relative left-96">
+          <button
+            className="bg-white hover:bg-black hover:text-white font-bold py-2 px-2 rounded border-2 border-black mb-4"
+            onClick={this.store}
+          >
+            Store results
+          </button>
+          <form onSubmit={this.handleSubmit}>
+            <input
+              name="query_name"
+              onChange={this.handleChange}
+              className="shadow outline-none appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight"
+              id="query_name"
+              type="text"
+              placeholder="query_name"
+            />
+          </form>
+        </div>
       </div>
     );
   }
