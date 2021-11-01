@@ -15,7 +15,6 @@ class App extends React.Component {
     };
   }
   componentDidMount() {
-    const myChart = this.echartRef.getEchartsInstance();
     let data = {};
     //let dataX = [];
     let delay = 1000;
@@ -28,10 +27,11 @@ class App extends React.Component {
         name_s.push(name);
         data[name] = [];
       }
-      if (name_s[name_s.length - 1] != socket.name) {
+      if (name_s.includes(socket.name) == false) {
         name_s.push(name);
         data[name] = [];
       }
+
       if (socket.xCoordinates.length == undefined) {
         data[name].push({
           name: Date.now(),
@@ -47,52 +47,51 @@ class App extends React.Component {
       }
       this.setState({ data, name: name, name_s });
     });
+  }
 
-    setInterval(() => {
-      let new_max, new_data, new_name;
-      if (name == undefined && this.state.query_name !== undefined) {
-        if (this.state.data[this.state.query_name] != undefined) {
-          new_max =
-            this.state.data[this.state.query_name][
-              this.state.data[this.state.query_name].length - 1
-            ].value[0];
-          new_name = this.state.query_name;
-          new_data = this.state.data[this.state.query_name];
-          console.log("aaa");
-          console.log(this.state);
-        }
-      } else {
-        console.log("bbb");
-        console.log(this.state);
-        new_name = name;
-        new_data = data[name];
-        new_max = data[name_s[0]][data[name_s[0]].length - 1].value[0];
+  componentDidUpdate = () => {
+    const myChart = this.echartRef.getEchartsInstance();
+    let new_max, new_data, new_name;
+    if (this.state.name == undefined && this.state.query_name !== undefined) {
+      if (this.state.data[this.state.query_name] != undefined) {
+        new_max =
+          this.state.data[this.state.query_name][
+            this.state.data[this.state.query_name].length - 1
+          ].value[0];
+        new_name = this.state.query_name;
+        new_data = this.state.data[this.state.query_name];
       }
-
-      if (new_data !== undefined) {
-        myChart.setOption({
-          xAxis: {
-            type: "value",
-            max: new_max,
-          },
-          series: [
-            {
-              name: new_name,
-              id: new_name,
-              type: "line",
-              showSymbol: false,
-              /*itemStyle: {
+    } else {
+      new_name = this.state.name;
+      new_data = this.state.data[new_name];
+      new_max =
+        this.state.data[this.state.name_s[0]][
+          this.state.data[this.state.name_s[0]].length - 1
+        ].value[0];
+    }
+    if (new_data !== undefined) {
+      myChart.setOption({
+        xAxis: {
+          type: "value",
+          max: new_max,
+        },
+        series: [
+          {
+            name: new_name,
+            id: new_name,
+            type: "line",
+            showSymbol: false,
+            /*itemStyle: {
               color: name
             },*/
-              data: new_data,
+            data: new_data,
 
-              animationThreshold: 10000,
-            },
-          ],
-        });
-      }
-    }, delay);
-  }
+            animationThreshold: 10000,
+          },
+        ],
+      });
+    }
+  };
   handleChange = async (event) => {
     const target = event.target;
     const user = this.state.user;
@@ -129,9 +128,6 @@ class App extends React.Component {
     if (response.status == 200) {
       body = await response.json();
       let data_name = body[body.name];
-      console.log("query");
-      console.log(body);
-      console.log(data_name);
       this.setState({ data: body });
     } else {
     }
