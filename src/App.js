@@ -52,7 +52,13 @@ class App extends React.Component {
   componentDidUpdate = () => {
     const myChart = this.echartRef.getEchartsInstance();
     let new_max, new_data, new_name;
-    if (this.state.name == undefined && this.state.query_name !== undefined) {
+    console.log(this.state.name);
+    console.log(this.state.query_name == "");
+    if (this.state.name == undefined || this.state.query_name !== "") {
+      // TODO: check if query_name data is finished
+      // otherwise this will run also if you stram new data via the python api
+      // and you won't be able to search after another search
+      console.log("hi");
       if (this.state.data[this.state.query_name] != undefined) {
         new_max =
           this.state.data[this.state.query_name][
@@ -62,6 +68,7 @@ class App extends React.Component {
         new_data = this.state.data[this.state.query_name];
       }
     } else {
+      let query = this.state.query_name;
       new_name = this.state.name;
       new_data = this.state.data[new_name];
       new_max =
@@ -69,6 +76,7 @@ class App extends React.Component {
           this.state.data[this.state.name_s[0]].length - 1
         ].value[0];
     }
+
     if (new_data !== undefined) {
       myChart.setOption({
         xAxis: {
@@ -147,6 +155,7 @@ class App extends React.Component {
       ],
       xAxis: {
         type: "value",
+        animation: false,
       },
       yAxis: {
         type: "value",
