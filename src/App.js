@@ -12,6 +12,7 @@ class App extends React.Component {
       name: "",
       name_s: [],
       query_name: "",
+      query: false,
     };
   }
   componentDidMount() {
@@ -67,7 +68,10 @@ class App extends React.Component {
         new_name = this.state.query_name;
         new_data = this.state.data[this.state.query_name];
       }
-    } else {
+    }
+    if (this.state.query != true) {
+      console.log("else");
+      console.log(this.state.data[this.state.query_name]);
       let query = this.state.query_name;
       new_name = this.state.name;
       new_data = this.state.data[new_name];
@@ -107,6 +111,7 @@ class App extends React.Component {
     query_name = query_name.toString();
     await this.setState({
       query_name,
+      query: true,
     });
   };
 
