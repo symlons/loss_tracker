@@ -1,0 +1,16 @@
+version: "3.7"
+
+services:
+  client:
+    image: node:16.18-alpine
+    stdin_open: true
+    tty: true
+    command: sh -c "npm start "
+    ports:
+      - 3000:3000
+    working_dir: /client
+    volumes:
+      - ./:/client
+    links:
+      - server
+

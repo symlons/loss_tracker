@@ -1,5 +1,5 @@
 var MongoClient = require("mongodb").MongoClient;
-var url = "mongodb://localhost:27017/";
+var url = "mongodb://sfkost:mypassword@mongo:27017/?authSource=admin";
 const createDOMPurify = require("dompurify");
 const { JSDOM } = require("jsdom");
 const window = new JSDOM("").window;
@@ -16,8 +16,9 @@ app.use(express.urlencoded({ limit: "50mb" }));
 var http = require("http").createServer(app);
 
 mongoose.connect("mongodb://sfkost:mypassword@mongo:27017/?authSource=admin", {
+  //useCreateIndex: true,
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true
 }).then(() => console.log('connected')).catch((e) => console.log('error'));
 
 const query_name_model = mongoose.model(
@@ -33,9 +34,9 @@ const query_name_model = mongoose.model(
 
 const io = require("socket.io")(http, {
   cors: {
-    origin: "*", // if it doesn't matter at all type:" " "*" "
+    origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
     methods: ["GET", "POST"],
-    credentials: true,
+    credentials: true,//true
   },
 });
 
@@ -64,13 +65,14 @@ app.post("/query", (req, res) => {
       if (err) {
         return next(err);
       } else {
-        console.log("hallo");
+        console.log("query find result", result)
         res.send(result);
       }
     }
   );
 });
 app.post("/store", (req, res) => {
+  console.log(req.body)
   req.body.name_s.map((item, index) => {
     req.body.data[item].map((item, index) => {
       item.name = parseFloat(item.name);
@@ -118,6 +120,10 @@ io.on("connection", (socket) => {
   console.log("New socket.io connection");
   socket.send("hello from node server");
   // socket.emit('message','Welcome to socket.io');
+})
+
+io.on("error", (error) => {
+  console.log(error)
 });
 
 http.listen(socket_PORT, () => {
