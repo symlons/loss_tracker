@@ -1,19 +1,18 @@
 version: "3.7"
 
 services:
-  server:
-    image: node:16.18-alpine
-    #network_mode: host
+  tracker:
+    build: ./
     stdin_open: true
     tty: true
     command: sh -c "npm run start"
-    working_dir: /server
+    working_dir: /backend
     ports:
       - 5005:5005
     depends_on:
       - "mongo"
     volumes:
-      - ./:/server
+      - ./:/backend
     environment:
       - Port=5005
 
@@ -26,4 +25,6 @@ services:
       - mongo-db:/data/db
 
 volumes: 
+  backend_volume:
   mongo-db:
+
