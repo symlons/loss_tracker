@@ -2,11 +2,10 @@ version: "3.7"
 
 services:
   server:
-    build: ./ 
-    image: loss-tracker-server
+    build: ./
     stdin_open: true
     tty: true
-    command: sh -c "npm run start"
+    command: sh -c "node index.js"
     working_dir: /backend
     ports:
       - 5005:5005

@@ -21,14 +21,14 @@ services:
     stdin_open: true
     tty: true
     command: sh -c "cd server && npm run start"
-    working_dir: /server
+    working_dir: /backend
     ports:
       - 5005:5005
       - 3005:3005
     depends_on:
       - "mongo"
     volumes:
-      - ./:/server
+      - ./:/backend
     environment:
       - Port=5005
 

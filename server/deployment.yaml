@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loss-tracker-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loss-tracker-server
+  template:
+    metadata:
+      labels:
+        app: loss-tracker-server
+    spec:
+      containers:
+      - name: loss-tracker-server
+        image: loss-tracker-server
+        imagePullPolicy: Never
+        ports: 
+        - containerPort: 5005
