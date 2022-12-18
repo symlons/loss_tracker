@@ -16,3 +16,11 @@ spec:
             name: load-balancer-server
             port:
               number: 3005
+
+      - path: /client
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-client
+            port:
+              number: 80
