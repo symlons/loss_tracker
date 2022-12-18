@@ -2,14 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: load-balancer-server
+  namespace: losstracker
   labels:
     app: loss-tracker-server
 spec:
-  type: LoadBalancer
+  #type: LoadBalancer
   selector:
     app: loss-tracker-server
   ports: 
   - port: 3005
     targetPort: 5005
-    nodePort: 31004
+    #nodePort: 31004
     protocol: TCP 

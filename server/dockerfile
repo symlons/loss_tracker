@@ -4,6 +4,6 @@ COPY package.json package-lock.json ./
 RUN npm install --production
 COPY . .
 EXPOSE 5005
-CMD node test.js
+CMD node index.js
 
 
