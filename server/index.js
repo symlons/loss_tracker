@@ -14,21 +14,21 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(function (req, res, next) {
   //do stuff
-	console.log('just for logging');
+  console.log("just for logging");
   next();
 });
 app.use(express.urlencoded({ limit: "50mb" }));
 
 var http = require("http").createServer(app);
 
-/*mongoose
-  .connect("mongodb://sfkost:mypassword@mongo:27017/?authSource=admin", {
+mongoose
+  .connect("mongodb://localhost:27017", {
     //useCreateIndex: true,
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
   .then(() => console.log("connected"))
-  .catch((e) => console.log("error"));*/
+  .catch((e) => console.log("error"));
 
 const query_name_model = mongoose.model(
   "query_name_model",
