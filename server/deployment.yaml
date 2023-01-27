@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: loss-tracker-server
-        image: loss-tracker-server:latest
+        image: loss-tracker-server
         imagePullPolicy: Never
         ports: 
         - containerPort: 5005
