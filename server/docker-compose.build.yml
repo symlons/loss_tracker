@@ -3,6 +3,7 @@ version: "3.7"
 services:
   server:
     build: ./
+    image: loss-tracker-server 
     stdin_open: true
     tty: true
     command: sh -c "node index.js"
