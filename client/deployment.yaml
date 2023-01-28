@@ -4,7 +4,7 @@ metadata:
   name: loss-tracker-client
   namespace: losstracker
 spec:
-  replicas: 2
+  replicas: 1
   selector: 
     matchLabels:
       app: loss-tracker-client
@@ -18,5 +18,5 @@ spec:
         image: loss-tracker-client
         imagePullPolicy: Never
         ports:
-        - containerPort: 80
+        - containerPort: 3000
 

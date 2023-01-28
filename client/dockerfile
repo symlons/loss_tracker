@@ -6,5 +6,5 @@ COPY package.json yarn.lock package-lock.json ./
 RUN npm install
 COPY . .
 #RUN npm run build --production
-EXPOSE 80
+EXPOSE 3000
 CMD ["npm", "start"]
