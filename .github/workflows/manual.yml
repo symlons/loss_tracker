@@ -13,5 +13,6 @@ jobs:
           node-version: 18.13
       - name: server
         working-directory: ./server
-        run: npm install
-        run: docker build -t loss-tracker-server .
+        run: |
+             npm install
+             docker build -t loss-tracker-server .
