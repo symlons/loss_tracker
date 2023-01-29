@@ -16,3 +16,4 @@ jobs:
         run: |
              npm install
              docker build -t loss-tracker-server .
+             docker push symlon/loss-tracker:latest
