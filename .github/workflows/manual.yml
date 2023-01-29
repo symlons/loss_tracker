@@ -5,12 +5,12 @@ on:
     branches: [ master ]
 jobs:
   runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
-      with: 
-        node-version: 18.13
-    - run:
-      working-directory: ./server
-    - run: npm install
-    - run: docker build -t loss-tracker-server .
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with: 
+          node-version: 18.13
+      - run:
+        working-directory: ./server
+      - run: npm install
+      - run: docker build -t loss-tracker-server .
