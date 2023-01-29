@@ -1,7 +1,7 @@
 name: loss-tracker-ci
 
 on:
-  run_action
+  workflow_dispatch
   
 jobs:
   build:
