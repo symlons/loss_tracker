@@ -11,6 +11,7 @@ jobs:
     - uses: actions/setup-node@v1
       with: 
         node-version: 18.13
-    - run: cd server 
+    - run:
+      working-directory: ./server
     - run: npm install
     - run: docker build -t loss-tracker-server .
