@@ -6,7 +6,7 @@ metadata:
   labels:
     app: loss-tracker-server
 spec:
-  type: LoadBalancer
+  #type: LoadBalancer
   selector:
     app: loss-tracker-server
   ports: 

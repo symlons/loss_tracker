@@ -23,4 +23,4 @@ spec:
           service:
             name: load-balancer-client
             port:
-              number: 80
+              number: 3000
