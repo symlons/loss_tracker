@@ -10,7 +10,7 @@ spec:
   selector:
     app: loss-tracker-server
   ports: 
-  - port: 3005
+  - port: 5005
     targetPort: 5005
     #nodePort: 31004
     protocol: TCP 

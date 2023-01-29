@@ -15,7 +15,7 @@ spec:
           service:
             name: load-balancer-server
             port:
-              number: 3005
+              number: 5005
 
       - path: /client
         pathType: Prefix

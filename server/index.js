@@ -11,12 +11,17 @@ const express = require("express");
 const bodyParser = require("body-parser");
 
 const app = express();
+
 app.use(express.json({ limit: "50mb" }));
 app.use(function (req, res, next) {
   //do stuff
-  console.log("just for logging");
+  var datetime = new Date();
+    console.log(datetime);
+
+  console.log("just for logging it");
   next();
 });
+
 app.use(express.urlencoded({ limit: "50mb" }));
 
 var http = require("http").createServer(app);
