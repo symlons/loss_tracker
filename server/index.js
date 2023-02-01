@@ -1,29 +1,23 @@
 var MongoClient = require("mongodb").MongoClient;
-var url = "mongodb://sfkost:mypassword@mongo:27017/?authSource=admin";
+var url = "mongodb://localhost:27017";
 
 const createDOMPurify = require("dompurify");
 const { JSDOM } = require("jsdom");
 const window = new JSDOM("").window;
 const DOMPurify = createDOMPurify(window);
+
 const mongoose = require("mongoose");
-
 const express = require("express");
-const bodyParser = require("body-parser");
-
 const app = express();
 
 app.use(express.json({ limit: "50mb" }));
 app.use(function (req, res, next) {
-  //do stuff
-  var datetime = new Date();
-    console.log(datetime);
-
-  console.log("just for logging it");
   next();
 });
 
-app.use(express.urlencoded({ limit: "50mb" }));
-
+//app.use(express.urlencoded({ limit: "50mb" }));
+//app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 var http = require("http").createServer(app);
 
 mongoose
@@ -46,25 +40,14 @@ const query_name_model = mongoose.model(
   "training_eval"
 );
 
-const io = require("socket.io")(http, {
-  cors: {
-    // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
-    methods: ["GET", "POST"],
-    credentials: true, //true
-  },
-});
 
-const socket_PORT = 3005;
-//const port = process.env.PORT || 5005;
-const port = 5005;
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 app.post("/api/python", (req, res) => {
   console.log(req.body);
   io.emit("test", req.body);
   res.end();
 });
+
 app.post("/api/loss_charting", (req, res) => {
   console.log(req.body);
   io.emit("logging", req.body);
@@ -76,7 +59,7 @@ app.get("/", (req, res) => {
   console.log("test");
 });
 
-app.post("/query", (req, res) => {
+app.post("/api/query", (req, res) => {
   console.log(req.body.query_name);
   let match = query_name_model.findOne(
     { name: req.body.query_name },
@@ -91,7 +74,8 @@ app.post("/query", (req, res) => {
     }
   );
 });
-app.post("/store", (req, res) => {
+
+app.post("/api/store", (req, res) => {
   console.log(req.body);
   req.body.name_s.map((item, index) => {
     req.body.data[item].map((item, index) => {
@@ -136,22 +120,29 @@ app.post("/store", (req, res) => {
   res.end();
 });
 
+const io = require("socket.io")(http, {
+  cors: {
+    // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
+    methods: ["GET", "POST"],
+    credentials: true, //true
+  },
+});
+
 io.on("connection", (socket) => {
   console.log("New socket.io connection");
   socket.send("hello from node server");
-  // socket.emit('message','Welcome to socket.io');
 });
 
 io.on("error", (error) => {
   console.log(error);
 });
 
+
+const socket_PORT = 3005;
+const port = 5005;
+
 http.listen(socket_PORT, () => {
   console.log("listening on *:" + socket_PORT);
 });
-/*io.on(`client:event`, data => {
-  console.log("hi")
-  console.log(data)
-})*/
 
 app.listen(port, () => console.log(`Listening on port ${port}`));
