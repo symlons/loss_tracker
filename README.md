@@ -26,3 +26,4 @@ kubectl apply -f ingress.yaml
 after changing the domain the server is still only reachable via localhost or 127.0.0.0
 
 Ingress:
+minikube addons enable ingress

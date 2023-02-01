@@ -15,10 +15,9 @@ class App extends React.Component {
       query: false,
     };
   }
+
   componentDidMount() {
     let data = {};
-    //let dataX = [];
-    let delay = 1000;
     let name;
     let name_s = [];
 
@@ -32,7 +31,6 @@ class App extends React.Component {
         name_s.push(name);
         data[name] = [];
       }
-
       if (socket.xCoordinates.length == undefined) {
         data[name].push({
           name: Date.now(),
@@ -53,13 +51,12 @@ class App extends React.Component {
   componentDidUpdate = () => {
     const myChart = this.echartRef.getEchartsInstance();
     let new_max, new_data, new_name;
-    console.log(this.state.name);
-    console.log(this.state.query_name == "");
+    //console.log(this.state.name);
+    //console.log(this.state.query_name == "");
     if (this.state.name == undefined || this.state.query_name !== "") {
       // TODO: check if query_name data is finished
       // otherwise this will run also if you stram new data via the python api
       // and you won't be able to search after another search
-      console.log("hi");
       if (this.state.data[this.state.query_name] != undefined) {
         new_max =
           this.state.data[this.state.query_name][
@@ -70,9 +67,7 @@ class App extends React.Component {
       }
     }
     if (this.state.query != true) {
-      console.log("else");
-      console.log(this.state.data[this.state.query_name]);
-      let query = this.state.query_name;
+      //let query = this.state.query_name;
       new_name = this.state.name;
       new_data = this.state.data[new_name];
       new_max =
@@ -97,13 +92,13 @@ class App extends React.Component {
               color: name
             },*/
             data: new_data,
-
             animationThreshold: 10000,
           },
         ],
       });
     }
   };
+
   handleChange = async (event) => {
     const target = event.target;
     const user = this.state.user;
@@ -128,7 +123,7 @@ class App extends React.Component {
 
     body = await response.json();*/
     let query_name = this.state.query_name;
-    response = await fetch("/query", {
+    response = await fetch("/api/query", {
       method: "POST", // or 'PUT',
       credentials: "omit", //same site
       headers: {
@@ -185,7 +180,7 @@ class App extends React.Component {
     let name_s = this.state.name_s;
     //data.s[95].value[0] = "<script>hallo</script>hallo";
     //for testing against xss
-    let response = await fetch("/store", {
+    let response = await fetch("/api/store", {
       method: "POST", // or 'PUT',
       headers: {
         "Content-Type": "application/json",
@@ -194,6 +189,7 @@ class App extends React.Component {
     });
     let body = await response.text();
   };
+
   render() {
     return (
       <div
