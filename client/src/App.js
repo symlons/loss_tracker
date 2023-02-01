@@ -75,6 +75,7 @@ class App extends React.Component {
           this.state.data[this.state.name_s[0]].length - 1
         ].value[0];
     }
+    console.log(new_data)
 
     if (new_data !== undefined) {
       myChart.setOption({
@@ -88,11 +89,11 @@ class App extends React.Component {
             id: new_name,
             type: "line",
             showSymbol: false,
-            /*itemStyle: {
-              color: name
-            },*/
+            //itemStyle: {
+             // color: name
+            //},
             data: new_data,
-            animationThreshold: 10000,
+            animationThreshold: 80000,
           },
         ],
       });
