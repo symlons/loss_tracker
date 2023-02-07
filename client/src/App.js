@@ -16,7 +16,12 @@ class App extends React.Component {
     };
   }
 
+  trigger_events(myChart){
+  }
+
   componentDidMount() {
+    const myChart = this.echartRef.getEchartsInstance();
+
     let data = {};
     let name;
     let name_s = [];
@@ -48,7 +53,7 @@ class App extends React.Component {
     });
   }
 
-  componentDidUpdate = () => {
+  componentDidUpdate = async () => {
     const myChart = this.echartRef.getEchartsInstance();
     let new_max, new_data, new_name;
     //console.log(this.state.name);
@@ -78,25 +83,83 @@ class App extends React.Component {
 
     if (new_data !== undefined) {
       myChart.setOption({
+        color: ["#0f2", "#000", "#d24", "#24d", "#00ddff", "#ffdd22"],
+        grid: {
+          bottom: "30%",
+        },
+        legend: {
+          bottom: "15%",
+          itemStyle:{
+            decal: {
+              symbol: 'rect'
+            }
+          }
+        },
         xAxis: {
           type: "value",
           max: new_max,
         },
+        toolbox: {
+          feature: {
+            dataZoom: {
+            },
+            //restore: {},
+            saveAsImage: {},
+          },
+        },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: {
+            type: "cross",
+          },
+          position: function (pt) {
+            return [pt[0], "10%"];
+          },
+        },
+
         series: [
           {
             name: new_name,
             id: new_name,
             type: "line",
             showSymbol: false,
-            /*itemStyle: {
-              color: name
-            },*/
             data: new_data,
-            animationThreshold: 10000,
+            animation: false,
+            emphasis: {
+              focus: "series",
+            },
+            triggerLineEvent: true
+            //animationThreshold: 800,
           },
         ],
       });
     }
+   console.log('sdfasdfds')
+   console.log(this.state)
+    myChart.on('click', (params) => { //only works, when: "triggerLineEvent: true" is set
+      if (params.componentType === 'series') {
+        if (params.seriesType === 'line') {
+
+          console.log('line')
+          console.log(params.seriesName)
+          console.log(this.state.data)
+          console.log(this.state.data[params.seriesName])
+          console.log(this.state.data[params.seriesName][this.state.data[params.seriesName].length - 1])
+
+          let new_max = this.state.data[params.seriesName][
+            this.state.data[params.seriesName].length - 1
+          ].value[0];
+
+          myChart.setOption({
+            xAxis:{ max: new_max}
+
+          })
+        }
+        if (params.seriesType === 'edge') {
+          console.log('edge')
+        }
+      }
+    });
   };
 
   handleChange = async (event) => {
@@ -136,7 +199,11 @@ class App extends React.Component {
     if (response.status === 200) {
       body = await response.json();
       let data_name = body[body.name];
-      this.setState({ data: body });
+      //this.setState({ data: body });
+     let  new_data = this.state.data.push({body})
+      console.log('new data')
+      console.log(new_data)
+    //  this.setState((previousState) => ({ data: [...previousState.name_s, 'halo'] }));
     } else {
     }
   };
@@ -153,13 +220,13 @@ class App extends React.Component {
           filterMode: "none",
         },
       ],
-      xAxis: {
+      xAxis: [{
         type: "value",
         animation: false,
-      },
+      }],
       yAxis: {
         type: "value",
-        interval: 0.5, // should be adjusted according to the data type
+        interval: "auto", // should be adjusted according to the data type
       },
       series: [
         {
@@ -191,6 +258,7 @@ class App extends React.Component {
   };
 
   render() {
+
     return (
       <div
         style={{
@@ -203,7 +271,7 @@ class App extends React.Component {
             this.echartRef = e;
           }}
           option={this.getOption()}
-          opts={{ renderer: "svg" }}
+          opts={{ renderer: "svg", useCoarsePointer: true, pointerSize: 100}}
         />
         <div className="inline-block relative left-96">
           <button
