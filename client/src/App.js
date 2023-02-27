@@ -8,7 +8,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      data: {},
+      data: {}, //comment out? 
       name: "",
       name_s: [],
       query_name: "",
@@ -22,7 +22,7 @@ class App extends React.Component {
   componentDidMount() {
     const myChart = this.echartRef.getEchartsInstance();
 
-    let data = {};
+    let data = {}; //comment out? 
     let name;
     let name_s = [];
 
