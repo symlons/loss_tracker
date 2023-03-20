@@ -1,5 +1,5 @@
 Structure:
-   redirect /api/ calls during dev to /
+   redirect /api/ calls during dev to / (done)
 1. redirect socket to correct endpoint
 2.  setup https
 3.  push to docker hub
@@ -14,5 +14,5 @@ Application:
 3. setup pseudo secure paasswords
 4. api_key for python
 5. implement authentication from react-auth
-6. setup vite
+6. setup vite (done)
 7. cypress for e2e testing
