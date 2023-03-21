@@ -8,7 +8,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      data: {}, //comment out? 
+      data: {}, //comment out?
       name: "",
       name_s: [],
       query_name: "",
@@ -16,13 +16,12 @@ class App extends React.Component {
     };
   }
 
-  trigger_events(myChart){
-  }
+  trigger_events(myChart) {}
 
   componentDidMount() {
     const myChart = this.echartRef.getEchartsInstance();
 
-    let data = {}; //comment out? 
+    let data = {}; //comment out?
     let name;
     let name_s = [];
 
@@ -89,11 +88,11 @@ class App extends React.Component {
         },
         legend: {
           bottom: "15%",
-          itemStyle:{
+          itemStyle: {
             decal: {
-              symbol: 'rect'
-            }
-          }
+              symbol: "rect",
+            },
+          },
         },
         xAxis: {
           type: "value",
@@ -101,8 +100,7 @@ class App extends React.Component {
         },
         toolbox: {
           feature: {
-            dataZoom: {
-            },
+            dataZoom: {},
             //restore: {},
             saveAsImage: {},
           },
@@ -128,35 +126,39 @@ class App extends React.Component {
             emphasis: {
               focus: "series",
             },
-            triggerLineEvent: true
+            triggerLineEvent: true,
             //animationThreshold: 800,
           },
         ],
       });
     }
-   console.log('sdfasdfds')
-   console.log(this.state)
-    myChart.on('click', (params) => { //only works, when: "triggerLineEvent: true" is set
-      if (params.componentType === 'series') {
-        if (params.seriesType === 'line') {
+    console.log("sdfasdfds");
+    console.log(this.state);
+    myChart.on("click", (params) => {
+      //only works, when: "triggerLineEvent: true" is set
+      if (params.componentType === "series") {
+        if (params.seriesType === "line") {
+          console.log("line");
+          console.log(params.seriesName);
+          console.log(this.state.data);
+          console.log(this.state.data[params.seriesName]);
+          console.log(
+            this.state.data[params.seriesName][
+              this.state.data[params.seriesName].length - 1
+            ]
+          );
 
-          console.log('line')
-          console.log(params.seriesName)
-          console.log(this.state.data)
-          console.log(this.state.data[params.seriesName])
-          console.log(this.state.data[params.seriesName][this.state.data[params.seriesName].length - 1])
-
-          let new_max = this.state.data[params.seriesName][
-            this.state.data[params.seriesName].length - 1
-          ].value[0];
+          let new_max =
+            this.state.data[params.seriesName][
+              this.state.data[params.seriesName].length - 1
+            ].value[0];
 
           myChart.setOption({
-            xAxis:{ max: new_max}
-
-          })
+            xAxis: { max: new_max },
+          });
         }
-        if (params.seriesType === 'edge') {
-          console.log('edge')
+        if (params.seriesType === "edge") {
+          console.log("edge");
         }
       }
     });
@@ -199,11 +201,12 @@ class App extends React.Component {
     if (response.status === 200) {
       body = await response.json();
       let data_name = body[body.name];
-      //this.setState({ data: body });
-     let  new_data = this.state.data.push({body})
-      console.log('new data')
-      console.log(new_data)
-    //  this.setState((previousState) => ({ data: [...previousState.name_s, 'halo'] }));
+      console.log(data_name);
+      console.log(this.state);
+      this.setState({ data: body });
+      //let new_data = this.state.data.push({ data_name });
+      console.log("new data");
+      //  this.setState((previousState) => ({ data: [...previousState.name_s, 'halo'] }));
     } else {
     }
   };
@@ -220,10 +223,12 @@ class App extends React.Component {
           filterMode: "none",
         },
       ],
-      xAxis: [{
-        type: "value",
-        animation: false,
-      }],
+      xAxis: [
+        {
+          type: "value",
+          animation: false,
+        },
+      ],
       yAxis: {
         type: "value",
         interval: "auto", // should be adjusted according to the data type
@@ -258,7 +263,6 @@ class App extends React.Component {
   };
 
   render() {
-
     return (
       <div
         style={{
@@ -271,7 +275,7 @@ class App extends React.Component {
             this.echartRef = e;
           }}
           option={this.getOption()}
-          opts={{ renderer: "svg", useCoarsePointer: true, pointerSize: 100}}
+          opts={{ renderer: "svg", useCoarsePointer: true, pointerSize: 100 }}
         />
         <div className="inline-block relative left-96">
           <button

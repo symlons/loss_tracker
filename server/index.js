@@ -40,8 +40,6 @@ const query_name_model = mongoose.model(
   "training_eval"
 );
 
-
-
 app.post("/api/python", (req, res) => {
   console.log(req.body);
   io.emit("test", req.body);
@@ -59,20 +57,11 @@ app.get("/", (req, res) => {
   console.log("test");
 });
 
-app.post("/api/query", (req, res) => {
+app.post("/api/query", async (req, res) => {
   console.log(req.body.query_name);
-  let match = query_name_model.findOne(
-    { name: req.body.query_name },
-    (err, result) => {
-      console.log(err);
-      if (err) {
-        return next(err);
-      } else {
-        console.log("query find result", result);
-        res.send(result);
-      }
-    }
-  );
+  let result = await query_name_model.findOne({ name: req.body.query_name });
+  console.log("query find result", result);
+  res.send(result);
 });
 
 app.post("/api/store", (req, res) => {
@@ -136,7 +125,6 @@ io.on("connection", (socket) => {
 io.on("error", (error) => {
   console.log(error);
 });
-
 
 const socket_PORT = 3005;
 const port = 5005;
