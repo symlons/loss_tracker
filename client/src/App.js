@@ -18,7 +18,6 @@ function App() {
     query_name: "",
     query: false,
   });
-  const isInitialMount = useRef(true);
 
   function trigger_events(myChart) {}
   function live_connection_callback(socket_data) {
@@ -27,23 +26,26 @@ function App() {
 
   // change to useEffect []
   useEffect(() => {
-    handle_socket_connection(live_connection_callback);
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    } else {
       const chartDom = document.getElementById("main_1");
       const myChart = echarts.init(chartDom, null, { renderer: "svg" });
       let option = getOption();
       option && myChart.setOption(option);
+    handle_socket_connection(live_connection_callback);
+  }, []);
+
+  useEffect(() => {
+    let query_name = state.query_name;
+    const chartDom = document.getElementById("main_1");
+    const myChart = echarts.getInstanceByDom(chartDom)
+
 
       let new_max, new_data, new_name;
       if (state.name === undefined || state.query_name !== "") {
         // TODO: check if query_name data is finished
         // otherwise this will run also if you stram new data via the python api
         // and you won't be able to search after another search
+	console.log(state.query_name)
+        console.log(state.data[state.query_name])
         if (state.data[state.query_name] !== undefined) {
           new_max =
             state.data[state.query_name][
@@ -68,10 +70,10 @@ function App() {
       }
 
       if (new_data !== undefined) {
+	      console.log('set new option')
         let settings = set_option(new_max, new_name, new_data);
         myChart.setOption(settings);
       }
-    }
   });
 
   async function handleChange(event) {
@@ -81,6 +83,7 @@ function App() {
     query_name = query_name.toString();
 
     await setState({
+      ...state,
       query_name,
       query: true,
     });
@@ -89,6 +92,7 @@ function App() {
   async function handleSubmit(event) {
     event.preventDefault();
     let response, body;
+	  /*
     response = await fetch("/csrf", {
       method: "GET",
       // creadentials: "include",
@@ -96,11 +100,12 @@ function App() {
         "Content-Type": "application/json",
       },
     });
+	  */
 
-    body = await response.json()
+    //body = await response.json()
     let query_name = state.query_name;
     const chartDom = document.getElementById("main_1");
-    const myChart = echarts.init(chartDom, null, { renderer: "svg" });
+    const myChart = echarts.getInstanceByDom(chartDom)
 
     myChart.showLoading({
       text: "loading",
@@ -108,7 +113,7 @@ function App() {
       spinnerRadius: 20,
       maskColor: "rgba(255, 255, 255, 0.4)",
     });
-    response = fetch("/api/query", {
+    response = await fetch("/api/query", {
       method: "POST", // or 'PUT',
       credentials: "omit", //same site
       headers: {
@@ -119,10 +124,10 @@ function App() {
     });
 
     if (response.status === 200) {
-      body = response.json();
+      body = await response.json();
       let data_name = body[body.name];
       console.log(data_name);
-      setState({ data: body });
+      setState({ ...state, data: body });
       //let new_data = this.state.data.push({ data_name });
       console.log("new data");
       //  this.setState((previousState) => ({ data: [...previousState.name_s, 'halo'] }));
@@ -150,6 +155,7 @@ function App() {
     let body = await response.text();
   }
 
+
   return (
     <div
       style={{
@@ -157,7 +163,7 @@ function App() {
         height: "100%",
       }}
     >
-      <div id="main_1" style={{ width: "800px", height: "800px" }}></div>
+      <div id="main_1" style={{ width: "800px", height: "400px" }}></div>
       <div className="inline-block relative left-96">
         <button
           className="bg-white hover:bg-black hover:text-white font-bold py-2 px-2 rounded border-2 border-black mb-4"
