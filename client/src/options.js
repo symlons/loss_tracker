@@ -86,3 +86,9 @@ export function set_option(new_max, new_name, new_data) {
    return options;
 }
 
+export const default_loading  = {
+      text: "loading",
+      color: "#000",
+      spinnerRadius: 20,
+      maskColor: "rgba(255, 255, 255, 0.4)",
+    }

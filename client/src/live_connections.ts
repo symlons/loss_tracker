@@ -1,9 +1,9 @@
 import { io } from "socket.io-client";
 
 export function handle_socket_connection(live_connection_callback) {
-  let data = {}; //comment out?
-  let name: [];
-  let name_s = [];
+  let name: string;
+  let data: {name: []}|{} = {}; 
+  let name_s: string[] = [];
 
 const socket = io("http://localhost:3005");
 
@@ -30,7 +30,6 @@ const socket = io("http://localhost:3005");
         });
       }
     }
-    //this.setState({ data, name: name, name_s });
     live_connection_callback({data, name: name, name_s})
   });
 }
