@@ -41,7 +41,6 @@ const query_name_model = mongoose.model(
 );
 
 app.post("/api/python", (req, res) => {
-  console.log(req.body);
   io.emit("test", req.body);
   res.end();
 });
@@ -58,14 +57,13 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/query", async (req, res) => {
-  console.log(req.body.query_name);
+  res.status(200)
   let result = await query_name_model.findOne({ name: req.body.query_name });
-  console.log("query find result", result);
+  console.log("query searching for:", req.body.query_name);
   res.send(result);
 });
 
 app.post("/api/store", (req, res) => {
-  console.log(req.body);
   req.body.name_s.map((item, index) => {
     req.body.data[item].map((item, index) => {
       item.name = parseFloat(item.name);
@@ -73,7 +71,6 @@ app.post("/api/store", (req, res) => {
       item.value[1] = parseFloat(item.value[1]);
     });
   });
-  console.log(req.body.data);
 
   try {
     MongoClient.connect(url, async function (err, db) {
@@ -100,7 +97,7 @@ app.post("/api/store", (req, res) => {
           console.log(err);
           console.log("database related error");
         }
-        console.log("did it try?");
+        console.log("tried fetching");
       });
     });
   } catch {
