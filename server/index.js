@@ -15,8 +15,6 @@ app.use(function (req, res, next) {
   next();
 });
 
-//app.use(express.urlencoded({ limit: "50mb" }));
-//app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 var http = require("http").createServer(app);
 
@@ -27,7 +25,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => console.log("connected"))
-  .catch((e) => console.log("error"));
+  .catch((e) => console.log("error", e));
 
 const query_name_model = mongoose.model(
   "query_name_model",
@@ -110,7 +108,7 @@ const io = require("socket.io")(http, {
   cors: {
     // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
     methods: ["GET", "POST"],
-    credentials: true, //true
+    credentials: true
   },
 });
 

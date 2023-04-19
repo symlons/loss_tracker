@@ -1,6 +1,6 @@
-import React from "react";
+import * as React from "react";
 import * as echarts from "echarts";
-import { default_loading, option, set_option } from "./options";
+import { default_loading, option, set_option } from "./utils/options";
 
 export function Query(props) {
   async function handleChange(event) {
@@ -11,16 +11,15 @@ export function Query(props) {
     let state = props.state;
     let setState = props.setState;
 
-    let query = props.query;
     let setQuery = props.setQuery;
 
-    setState({
+    await setState({
       ...state,
       query_name,
       query: true,
     });
 
-    setQuery({status: true, value: query_name})
+    await setQuery({ status: false, value: query_name }); // triggers rerender in useffect in app.js
   }
 
   async function handleSubmit(event) {
@@ -46,6 +45,8 @@ export function Query(props) {
       let body = await response.json();
       let setState = props.setState;
       setState({ ...state, data: body });
+      let setQuery = props.setQuery;
+      setQuery({ status: true, value: query_name }); // only display query in echarts after query has been submitted
     } else {
       //TODO:
     }

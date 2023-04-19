@@ -1,5 +1,3 @@
-import opts from "http-server/lib/core/opts";
-
 export const option = {
   title: {
     left: "center",
@@ -35,7 +33,7 @@ export const option = {
 
 export function set_option(new_max, new_name, new_data) {
 	let options ={
-        color: ["#0f2", "#000", "#d24", "#24d", "#00ddff", "#ffdd22"],
+        color: ["#000", "#0f2", "#000", "#d24", "#24d", "#00ddff", "#ffdd22"],
         grid: {
           bottom: "30%",
         },

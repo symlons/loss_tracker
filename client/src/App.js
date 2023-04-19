@@ -1,14 +1,15 @@
 import * as echarts from "echarts";
 import React from "react";
 import { useState, useEffect } from "react";
-import { option } from "./options";
+
 import { handle_socket_connection } from "./live_connections.ts";
-import { Store } from "./store_data.tsx";
+import { option } from "./utils/options"; // options
+import { Store } from "./store_data.tsx"; // components
 import { Query } from "./query.tsx";
-import { update_data } from "./update_data.ts";
+import { update_data } from "./utils/update_data.ts"; // utils
 
 function App() {
-  const [query, setQuery] = useState({ status: false, value: null });
+  const [query, setQuery] = useState({ status: false, value: null});
   const [state, setState] = useState({
     data: {},
     name: "",

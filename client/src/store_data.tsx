@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 
 function Store(state) {
   async function save_data() {
