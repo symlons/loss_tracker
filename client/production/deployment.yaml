@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loss-tracker-client
+  namespace: losstracker
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      app: loss-tracker-client
+  template:
+    metadata:
+      labels:
+        app: loss-tracker-client
+    spec:
+      containers:
+      - name: loss-tracker-client
+        image: loss-tracker-client
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+
