@@ -1,0 +1,7 @@
+db.things.aggregate([
+  {"$project":{"arrayofkeyvalue":{"$objectToArray":"$$ROOT"}}},
+  {"$unwind":"$arrayofkeyvalue"},
+  {"$group":{"_id":null,"allkeys":{"$addToSet":"$arrayofkeyvalue.k"}}}
+])
+
+db.training_eval.find({},{name:1,_id:0})
