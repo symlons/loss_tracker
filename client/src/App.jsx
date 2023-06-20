@@ -50,9 +50,10 @@ function App() {
         width: "60%",
         height: "100%",
       }}
+      className="rounded-lg border-2 border-black"
     >
       <div id="main_1" style={{ width: "800px", height: "400px" }}></div>
-      <div className="inline-block relative left-96">
+      <div className="relative left-96 inline-block">
         <Store />
         <Query
           state={state}
