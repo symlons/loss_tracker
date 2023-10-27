@@ -6,7 +6,7 @@ services:
     image: loss-tracker-server 
     stdin_open: true
     tty: true
-    command: sh -c "node index.js"
+    command: sh -c "npm start"
     working_dir: /backend
     ports:
       - 5005:5005
