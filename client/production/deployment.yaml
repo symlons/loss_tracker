@@ -18,5 +18,5 @@ spec:
         image: loss-tracker-client
         imagePullPolicy: Never
         ports:
-        - containerPort: 3000
+        - containerPort: 5173
 
