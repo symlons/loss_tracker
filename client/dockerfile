@@ -1,5 +1,5 @@
 # Build stage
-FROM node:12-alpine
+FROM node:16.8-alpine
 RUN apk add --no-cache python2 g++ make
 WORKDIR ./
 COPY package.json yarn.lock package-lock.json ./
@@ -7,4 +7,4 @@ RUN npm install
 COPY . .
 #RUN npm run build --production
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["npx", "vite"]
