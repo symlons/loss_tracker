@@ -7,11 +7,11 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   rules:
-  - host: dashboard.com
+  - host: tracker.com
   - http: 
       paths: 
       - path: /api(/|$)(.*)
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: load-balancer-server
@@ -22,6 +22,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: load-balancer-client
+            name: maintenance-nginx
             port:
-              number: 3000
+              number: 80

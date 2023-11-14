@@ -1,10 +1,8 @@
-# Build stage
-FROM node:16.8-alpine
-RUN apk add --no-cache python2 g++ make
-WORKDIR ./
-COPY package.json yarn.lock package-lock.json ./
-RUN npm install
-COPY . .
-#RUN npm run build --production
-EXPOSE 5173
-CMD ["npx", "vite"]
+FROM nginx:stable
+EXPOSE 80
+COPY maintanence.conf /etc/nginx/conf.d/maintanence.conf
+COPY dist /usr/share/nginx/html
+# copy static maintanence
+COPY dist/index.html /usr/share/nginx/html/index.html
+STOPSIGNAL SIGQUIT
+CMD ["nginx", "-g", "daemon off;"]
