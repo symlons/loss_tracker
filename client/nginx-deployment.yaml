@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maintenance-nginx
+spec:
+  selector:
+    matchLabels:
+      run: maintenance-nginx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: maintenance-nginx
+    spec:
+      containers:
+        - image: symlon/loss-tracker:client
+          imagePullPolicy: Always
+          name: maintenance-nginx
+          ports:
+          - containerPort: 80
+      imagePullSecrets:
+        - name: regcred
