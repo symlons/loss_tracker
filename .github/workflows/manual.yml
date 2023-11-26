@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: 18.13
           cache: npm
+          cache-dependency-path: package-lock.json
       - name: server
         working-directory: ./server
         run: |
