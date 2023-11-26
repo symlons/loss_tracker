@@ -7,11 +7,11 @@ jobs:
   test_pull_request:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: actions/setup-node@v1
       with: 
         node-version: 18.13
-    - run:
+    - name: Changing working_dir
       working-directory: ./server
-    - run: npm install
+    - run: npm install .
     - run: docker build -t loss-tracker-server .
