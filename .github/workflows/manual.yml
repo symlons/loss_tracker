@@ -20,4 +20,4 @@ jobs:
              docker build -t symlon/loss-tracker-server .
              echo "test"
              echo $(docker image ls)
-             docker push symlon/loss-tracker:latest
+             docker push symlon/loss-tracker-server:latest
