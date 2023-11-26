@@ -1,5 +1,10 @@
 name: loss-tracker-ci
 
+defaults:
+  run:
+    shell: bash
+    working-directory: ./server
+    
 on:
   pull_request:
     branches: [ master ]
