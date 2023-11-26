@@ -1,9 +1,7 @@
 name: loss-tracker-ci
 
 on:
-  pull_request:
-    branches: [ master ]
-  
+  push
 jobs:
   build:
   
