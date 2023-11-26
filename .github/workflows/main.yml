@@ -3,7 +3,7 @@ name: loss-tracker-ci
 defaults:
   run:
     shell: bash
-    working-directory: ./server
+    working-directory: cd ./server
     
 on:
   pull_request:
