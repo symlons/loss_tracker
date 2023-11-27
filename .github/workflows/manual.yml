@@ -23,7 +23,7 @@ jobs:
       - name: server
         working-directory: ./server
         run: |
-             docker build buildx --platform linux/arm64 -t symlon/loss-tracker:server .
+             docker buildx build --platform linux/arm64 -t symlon/loss-tracker:server .
              docker push symlon/loss-tracker:server  
   client:
   
