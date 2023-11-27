@@ -42,6 +42,7 @@ jobs:
         working-directory: ./client
         run: |
           npm i vite
+          SOCKET_HOST="http://167.235.139.154:3005"
           npx vite build
           docker build -t symlon/loss-tracker:client -f production/dockerfile .
           docker push symlon/loss-tracker:client    
