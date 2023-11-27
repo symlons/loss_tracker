@@ -32,6 +32,26 @@ spec:
   - host: tracker.com
     http:
       paths:
+      - path: /socket(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 3005
+  - host: ""
+    http:
+      paths:
+      - path: /socket(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 3005
+  - host: tracker.com
+    http:
+      paths:
       - path: /?(.*)
         pathType: Prefix
         backend:

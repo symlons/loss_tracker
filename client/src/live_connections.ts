@@ -1,36 +1,38 @@
 import { io } from "socket.io-client";
 
 export function handle_socket_connection(live_connection_callback) {
-  let name: string;
-  let data: {name: []}|{} = {}; 
-  let name_s: string[] = [];
+	let name: string;
+	let data: { name: [] } | {} = {};
+	let name_s: string[] = [];
 
-const socket = io(process.env.SOCKET_HOST);
+	console.log(process.env.SOCKET_HOST)
+	const socket = io(process.env.SOCKET_HOST);
+	console.log(socket)
 
-  socket.on("logging", (socket: any) => {
-    name = socket.name;
-    if (name_s.length === 0) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (name_s.includes(socket.name) === false) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (socket.xCoordinates.length === undefined) {
-      data[name].push({
-        name: Date.now(),
-        value: [socket.xCoordinates, socket.yCoordinates],
-      });
-    } else {
-      for (let i = 0; i < socket.xCoordinates.length; i++) {
-        data[name].push({
-          name: Date.now(),
-          value: [socket.xCoordinates[i], socket.yCoordinates[i]],
-        });
-      }
-    }
-    live_connection_callback({data, name: name, name_s})
-  });
+	socket.on("logging", (socket: any) => {
+		name = socket.name;
+		if (name_s.length === 0) {
+			name_s.push(name);
+			data[name] = [];
+		}
+		if (name_s.includes(socket.name) === false) {
+			name_s.push(name);
+			data[name] = [];
+		}
+		if (socket.xCoordinates.length === undefined) {
+			data[name].push({
+				name: Date.now(),
+				value: [socket.xCoordinates, socket.yCoordinates],
+			});
+		} else {
+			for (let i = 0; i < socket.xCoordinates.length; i++) {
+				data[name].push({
+					name: Date.now(),
+					value: [socket.xCoordinates[i], socket.yCoordinates[i]],
+				});
+			}
+		}
+		live_connection_callback({ data, name: name, name_s })
+	});
 }
 
