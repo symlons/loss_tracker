@@ -30,7 +30,7 @@ jobs:
         working-directory: ./client
         run: |
           npm install
-          vite build
+          npx vite build
           docker build -t symlon/loss-tracker:client -f production/dockerfile .
           docker push symlon/loss-tracker-server:client
         
