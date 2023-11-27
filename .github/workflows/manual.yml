@@ -32,6 +32,6 @@ jobs:
           npm install
           npx vite build
           docker build -t symlon/loss-tracker:client -f production/dockerfile .
-          docker push symlon/loss-tracker-server:client
+          docker push symlon/loss-tracker:client
         
       
