@@ -21,7 +21,6 @@ jobs:
       - name: server
         working-directory: ./server
         run: |
-             npm install
              docker build -t symlon/loss-tracker:server .
              docker push symlon/loss-tracker:server  
   client:
@@ -42,7 +41,6 @@ jobs:
       - name: client
         working-directory: ./client
         run: |
-          npm install
           npx vite build
           docker build -t symlon/loss-tracker:client -f production/dockerfile .
           docker push symlon/loss-tracker:client    
