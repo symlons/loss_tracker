@@ -26,3 +26,12 @@ jobs:
              echo "test"
              echo $(docker image ls)
              docker push symlon/loss-tracker-server:latest
+      - name: client
+        working-directory: ./client
+        run: |
+          npm install
+          vite build
+          docker build -t symlon/loss-tracker:client -f production/dockerfile .
+          docker push symlon/loss-tracker-server:client
+        
+      
