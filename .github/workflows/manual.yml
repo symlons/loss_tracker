@@ -3,12 +3,12 @@ name: loss-tracker-ci
 on:
   push
 jobs:
-  build:
+  server:
   
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.13
           cache: npm
@@ -21,8 +21,28 @@ jobs:
       - name: server
         working-directory: ./server
         run: |
-             npm install
-             docker build -t symlon/loss-tracker-server .
-             echo "test"
-             echo $(docker image ls)
-             docker push symlon/loss-tracker-server:latest
+             docker build -t symlon/loss-tracker:server .
+             docker push symlon/loss-tracker:server  
+  client:
+  
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.13
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: client
+        working-directory: ./client
+        run: |
+          npm i vite
+          SOCKET_HOST="http://167.235.139.154:3005"
+          npx vite build
+          docker build -t symlon/loss-tracker:client -f production/dockerfile .
+          docker push symlon/loss-tracker:client    
