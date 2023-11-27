@@ -5,8 +5,29 @@ metadata:
   annotations: 
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   rules:
+  # - host: tracker.com
+  #   http:
+  #     paths:
+  #     - path: /api(/|$)(.*)
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: load-balancer-server
+  #           port:
+  #             number: 5005
+  # - host: ""
+  #   http:
+  #     paths:
+  #     - path: /api(/|$)(.*)
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: load-balancer-server
+  #           port:
+  #             number: 5005
   - host: tracker.com
     http:
       paths:
