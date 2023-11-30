@@ -7,6 +7,20 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/enable-cors: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "app-sockets-cluster-ip-service"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      set $forwarded_client_ip "";
+      if ($http_x_forwarded_for ~ "^([^,]+)") {
+        set $forwarded_client_ip $1;
+      }
+      set $client_ip $remote_addr;
+      if ($forwarded_client_ip != "") {
+        set $client_ip $forwarded_client_ip;
+      }
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$client_ip"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   rules:
   - host: tracker.com
@@ -19,6 +33,21 @@ spec:
             name: load-balancer-server
             port:
               number: 5005
+      - path: /socket(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 3005
+      - path: /socket
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 3005
+
   - host: ""
     http:
       paths:
@@ -29,9 +58,6 @@ spec:
             name: load-balancer-server
             port:
               number: 5005
-  - host: tracker.com
-    http:
-      paths:
       - path: /socket(/|$)(.*)
         pathType: Prefix
         backend:
@@ -39,16 +65,15 @@ spec:
             name: load-balancer-server
             port:
               number: 3005
-  - host: ""
-    http:
-      paths:
-      - path: /socket(/|$)(.*)
+      - path: /socket
         pathType: Prefix
         backend:
           service:
             name: load-balancer-server
             port:
               number: 3005
+
+
   - host: tracker.com
     http:
       paths:
