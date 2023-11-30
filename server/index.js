@@ -35,7 +35,7 @@ const query_name_model = mongoose.model(
       required: true,
     },
   }),
-  "training_eval"
+  "training_eval",
 );
 
 app.post("/api/python", (req, res) => {
@@ -55,7 +55,7 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/query", async (req, res) => {
-  res.status(200)
+  res.status(200);
   let result = await query_name_model.findOne({ name: req.body.query_name });
   console.log("query searching for:", req.body.query_name);
   res.send(result);
@@ -109,9 +109,9 @@ const io = require("socket.io")(http, {
     // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
     origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
-
+    credentials: true,
   },
+  path: "/socket/",
 });
 
 io.on("connection", (socket) => {
