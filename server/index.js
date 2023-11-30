@@ -109,7 +109,7 @@ const io = require("socket.io")(http, {
     // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
     origin: "*",
     methods: ["GET", "POST"],
-    credentials: false
+    credentials: true
 
   },
 });

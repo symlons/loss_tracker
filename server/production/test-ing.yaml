@@ -8,7 +8,13 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/enable-cors: "false"
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/websocket-services: "app-sockets-cluster-ip-service"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Upgrade, Origin, Connection, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://167.235.139.154"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    #nginx.ingress.kubernetes.io/websocket-services: "app-sockets-cluster-ip-service"
+    nginx.ingress.kubernetes.io/websocket-services: "load-balancer-server"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       set $forwarded_client_ip "";
       if ($http_x_forwarded_for ~ "^([^,]+)") {
