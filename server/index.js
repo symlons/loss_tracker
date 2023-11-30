@@ -107,8 +107,10 @@ app.post("/api/store", (req, res) => {
 const io = require("socket.io")(http, {
   cors: {
     // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
+    origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: false
+
   },
 });
 
