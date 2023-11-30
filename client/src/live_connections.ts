@@ -6,7 +6,7 @@ export function handle_socket_connection(live_connection_callback) {
 	let name_s: string[] = [];
 
 	console.log(process.env.REACT_APP_SOCKET_HOST)
-	const socket = io(process.env.REACT_APP_SOCKET_HOST);
+	const socket = io(process.env.REACT_APP_SOCKET_HOST, { transports : ['websocket'] });
 	console.log(socket)
 
 	socket.on("logging", (socket: any) => {
