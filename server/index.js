@@ -54,6 +54,16 @@ app.get("/", (req, res) => {
   console.log("test");
 });
 
+app.get("/api", (req, res) => {
+  res.send("/api");
+  console.log("test");
+});
+
+app.get("/api/test", (req, res) => {
+  res.send("/api/test");
+  console.log("test");
+});
+
 app.post("/api/query", async (req, res) => {
   res.status(200);
   let result = await query_name_model.findOne({ name: req.body.query_name });
