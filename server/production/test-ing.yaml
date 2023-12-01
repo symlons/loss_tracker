@@ -55,7 +55,7 @@ spec:
   - host: tracker.com
     http:
       paths:
-      - path: /api(/.*)$
+      - path: /api/(.*)$
         pathType: Prefix
         backend:
           service:
@@ -72,7 +72,7 @@ spec:
   - host: ""
     http:
       paths:
-      - path: /api(/.*)$
+      - path: /api/(.*)$
         pathType: Prefix
         backend:
           service:
