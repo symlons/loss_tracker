@@ -1,19 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: test-ing
+  name: socket-ingress
   annotations: 
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/enable-cors: "false"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "Upgrade, Origin, Connection, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "http://167.235.139.154"
-    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
-    #nginx.ingress.kubernetes.io/websocket-services: "app-sockets-cluster-ip-service"
     nginx.ingress.kubernetes.io/websocket-services: "load-balancer-server"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       set $forwarded_client_ip "";
@@ -25,27 +17,11 @@ metadata:
         set $client_ip $forwarded_client_ip;
       }
     nginx.ingress.kubernetes.io/upstream-hash-by: "$client_ip"
-    # nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    # nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   rules:
   - host: tracker.com
     http:
       paths:
-      - path: /api(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: load-balancer-server
-            port:
-              number: 5005
-      - path: /socket(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: load-balancer-server
-            port:
-              number: 3005
       - path: /socket
         pathType: Prefix
         backend:
@@ -53,24 +29,9 @@ spec:
             name: load-balancer-server
             port:
               number: 3005
-
   - host: ""
     http:
       paths:
-      - path: /api(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: load-balancer-server
-            port:
-              number: 5005
-      - path: /socket(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: load-balancer-server
-            port:
-              number: 3005
       - path: /socket
         pathType: Prefix
         backend:
@@ -79,10 +40,28 @@ spec:
             port:
               number: 3005
 
-
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  annotations: 
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
   - host: tracker.com
     http:
       paths:
+      - path: /api(/.*)$
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 5005
       - path: /?(.*)
         pathType: Prefix
         backend:
@@ -93,6 +72,13 @@ spec:
   - host: ""
     http:
       paths:
+      - path: /api(/.*)$
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 5005
       - path: /?(.*)
         pathType: Prefix
         backend:

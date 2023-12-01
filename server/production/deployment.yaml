@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: loss-tracker-server
-        image: symlon/loss-tracker:latest
+        image: symlon/loss-tracker:server
         imagePullPolicy: Always
         ports: 
         - containerPort: 5005

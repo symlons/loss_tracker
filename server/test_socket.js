@@ -55,10 +55,54 @@ socket_7.on("connect", () => {
 	socket_7.disconnect()
 })
 
-let socket_8 = io("http://tracker.com/", {path:"/socket/"})
+let socket_8 = io("http://tracker.com/socket", {path:"/socket/"})
 console.log(socket_8)
 socket_8.on("connect", () => {
 	console.log("8:")
 	console.log(socket_8.connected); // true
 	socket_8.disconnect()
 })
+
+
+let socket_9 = io("http://167.235.139.154/socket")
+socket_9.on("connect", () => {
+	console.log('9:')
+	console.log(socket_9.connected); // true
+	socket_9.disconnect()
+});
+
+let socket_13 = io("http://tracker.com/socket")
+socket_13.on("connect", () => {
+	console.log('13:')
+	console.log(socket_13.connected); // true
+	socket_13.disconnect()
+});
+
+let socket_10 = io("http://10.10.204.51:3005")
+socket_10.on("connect", () => {
+	console.log('10:')
+	console.log(socket_10.connected); // true
+	socket_10.disconnect()
+});
+
+let socket_11 = io("http://167.235.139.154/")
+socket_11.on("connect", () => {
+	console.log('11:')
+	console.log(socket_11.connected); // true
+	socket_11.disconnect()
+});
+
+let socket_12 = io("http://tracker.com", {path:"/socket/"})
+console.log(socket_12)
+socket_12.on("connect", () => {
+	console.log("12:")
+	console.log(socket_12.connected); // true
+	socket_12.disconnect()
+})
+
+let socket_14 = io("http://167.235.139.154/", {path:"/socket/"})
+socket_14.on("connect", () => {
+	console.log('14:')
+	console.log(socket_14.connected); // true
+	socket_14.disconnect()
+});
