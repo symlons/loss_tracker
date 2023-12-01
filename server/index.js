@@ -121,7 +121,8 @@ const io = require("socket.io")(http, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  path: "/api/",
+  transports: ["websocket", "polling"],
+  allowEIO3: true,
 });
 
 io.on("connection", (socket) => {
