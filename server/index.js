@@ -111,7 +111,6 @@ const io = require("socket.io")(http, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  path: "/socket/",
 });
 
 io.on("connection", (socket) => {
