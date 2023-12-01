@@ -50,7 +50,7 @@ app.post("/api/loss_charting", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("test");
+  res.send("testin the root path /");
   console.log("test");
 });
 
