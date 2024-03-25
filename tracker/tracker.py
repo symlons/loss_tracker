@@ -1,6 +1,7 @@
 import requests as rq
 
 host = "http://localhost:5005/api/loss_charting"
+host = "http://167.235.139.154/api/api/loss_charting/"
 session = rq.Session()
 
 class xy:
@@ -10,7 +11,7 @@ class xy:
         self.block_size = block_size
         self.post(x, y, name)
 
-    def post(self, x, y, name, host="http://localhost:5005/api/loss_charting"):
+    def post(self, x, y, name, host="http://167.235.139.154/api/api/loss_charting/"):
 
         if type(x) == list:
             self.x_list.extend(x)
@@ -30,7 +31,7 @@ class log:
         self.block_size = block_size
         self.post(y, name)
 
-    def post(self, y, name, host="http://localhost:5005/api/loss_charting"):
+    def post(self, y, name, host="http://167.235.139.154/api/api/loss_charting/"):
         self.x_list.append(self.x_list[-1] + self.block_size)
         if type(y) == list:
             self.y_list.extend(y)
