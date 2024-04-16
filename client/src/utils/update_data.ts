@@ -1,6 +1,6 @@
 import { set_option } from "./options";
 
-function calc_max(state: {name, data}, query: {status, value}) {
+function calc_max(state: { name; data }, query: { status; value }) {
   let value;
   if (state.name === undefined || query.value !== "") {
     if (state.data[query.value] !== undefined) {
@@ -16,6 +16,7 @@ export function update_data(state, query) {
   let max = calc_max(state, query);
 
   if (query.status === false) {
+	  console.log('firstasdfjksj')
     new_name = state.name;
     new_data = state.data[new_name];
     option = set_option(max, new_name, new_data);
@@ -25,7 +26,7 @@ export function update_data(state, query) {
     option = set_option(max, new_name, new_data);
   } else {
     console.log("query status set to true, but no data was provided");
-    return null
+    return null;
   }
   return option;
 }
