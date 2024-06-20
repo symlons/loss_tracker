@@ -63,3 +63,5 @@ class log:
         self.x_list = [0]
         self.y_list = []
 
+
+
