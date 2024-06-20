@@ -21,6 +21,7 @@
     "postcss": "^8.4.18",
     "postcss-import": "^15.0.0",
     "react": "^18.2.0",
+    "react-devtools": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "^3.0.1",
     "socket.io": "^4.5.3",
@@ -34,8 +35,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "dev":  "export $(cat .env | xargs) && npx vite "
-
+    "dev": "export $(cat .env | xargs) && npx vite "
   },
   "eslintConfig": {
     "extends": [

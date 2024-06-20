@@ -27,3 +27,12 @@ after changing the domain the server is still only reachable via localhost or 12
 
 Ingress:
 minikube addons enable ingress
+
+## Development Setup
+### Frontend
+'cd client && npm run dev'
+
+### Backend
+'cd server && npx nodemon'
+
+
