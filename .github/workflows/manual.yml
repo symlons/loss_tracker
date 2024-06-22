@@ -45,7 +45,7 @@ jobs:
         run: |
           npm i vite
           export $(cat .env | xargs)
-          REACT_APP_SOCKET_HOST="http://167.235.139.154"
+          REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
           npx vite build
           docker build --platform linux/arm64 -t symlon/loss-tracker:client -f production/dockerfile .
           docker push symlon/loss-tracker:client    
