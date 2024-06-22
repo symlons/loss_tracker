@@ -4,14 +4,14 @@ var url = "mongodb://localhost:27017";
 const createDOMPurify = require("dompurify");
 const { JSDOM } = require("jsdom");
 const window = new JSDOM("").window;
-const DOMPurify = createDOMPurify(window);
+const DOMPurify = createDOMPurify(window); // TODO: sanitize data
 
 const mongoose = require("mongoose");
 const express = require("express");
 const app = express();
 
 app.use(express.json({ limit: "50mb" }));
-app.use(function (req, res, next) {
+app.use(function (_, _, next) {
   next();
 });
 
@@ -35,7 +35,7 @@ const query_name_model = mongoose.model(
       required: true,
     },
   }),
-  "training_eval",
+  "training_eval"
 );
 
 app.post("/api/python", (req, res) => {
@@ -49,17 +49,17 @@ app.post("/api/loss_charting", (req, res) => {
   res.end();
 });
 
-app.get("/", (req, res) => {
+app.get("/", (_, res) => {
   res.send("testin the root path /");
   console.log("test");
 });
 
-app.get("/api", (req, res) => {
+app.get("/api", (_, res) => {
   res.send("/api");
   console.log("test");
 });
 
-app.get("/api/test", (req, res) => {
+app.get("/api/test", (_, res) => {
   res.send("/api/test");
   console.log("test");
 });
@@ -72,12 +72,12 @@ app.post("/api/query", async (req, res) => {
 });
 
 app.post("/api/store", (req, res) => {
-  console.log('log')
-  console.log(req)
-  console.log(req.body)
-  req.body.name_s.map((item, index) => {
-  console.log(item)
-    req.body.data[item].map((item, index) => {
+  console.log("log");
+  console.log(req);
+  console.log(req.body);
+  req.body.name_s.map((item, _) => {
+    console.log(item);
+    req.body.data[item].map((item, _) => {
       item.name = parseFloat(item.name);
       item.value[0] = parseFloat(item.value[0]);
       item.value[1] = parseFloat(item.value[1]);
@@ -86,9 +86,10 @@ app.post("/api/store", (req, res) => {
 
   try {
     MongoClient.connect(url, async function (err, db) {
+      // TODO: migrate to latest mongodb version
       if (err) throw err;
       var dbo = db.db("test");
-      req.body.name_s.map((item, index) => {
+      req.body.name_s.map((item, _) => {
         console.log(item);
         let filter = { [item]: { $exists: 1 } };
         let update = {
@@ -100,7 +101,7 @@ app.post("/api/store", (req, res) => {
         try {
           dbo
             .collection("training_eval")
-            .updateOne(filter, update, { upsert: true }, function (err, res) {
+            .updateOne(filter, update, { upsert: true }, function (err, _) {
               if (err) throw err;
               console.log("1 document inserted");
               db.close();

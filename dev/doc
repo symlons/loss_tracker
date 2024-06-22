@@ -1,3 +1,0 @@
-mongorestore -u 'sfkost' --authenticationDatabse admin -d test -c training_eval ./storage.bson
-
-db.createUser({user: "admin", pwd: "password", roles: ["dbAdmin"]})
