@@ -28,8 +28,6 @@ export function handle_socket_connection(live_connection_callback) {
         value: [socket.xCoordinates, socket.yCoordinates],
       });
     } else {
-      console.log(socket.xCoordinates);
-      console.log(socket.xCoordinates.length);
       console.log(data[name]);
       for (let i = 0; i < socket.xCoordinates.length; i++) {
 	console.log(socket.xCoordinates[i])

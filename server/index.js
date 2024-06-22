@@ -72,7 +72,11 @@ app.post("/api/query", async (req, res) => {
 });
 
 app.post("/api/store", (req, res) => {
+  console.log('log')
+  console.log(req)
+  console.log(req.body)
   req.body.name_s.map((item, index) => {
+  console.log(item)
     req.body.data[item].map((item, index) => {
       item.name = parseFloat(item.name);
       item.value[0] = parseFloat(item.value[0]);

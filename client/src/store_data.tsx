@@ -1,10 +1,12 @@
 import * as React from "react";
 
-function Store(state) {
+function Store(props) {
   async function save_data() {
-    let data = state.data;
-    let name = state.name;
-    let name_s = state.name_s;
+    let data = props.state.data;
+    let name = props.state.name;
+    let name_s = props.state.name_s;
+    console.log(name)
+    console.log(name_s)
     let response = await fetch("/api/store", {
       method: "POST", // or 'PUT',
       headers: {

@@ -10,10 +10,9 @@ class xy:
         self.name = name
         self.x_list = []
         self.y_list = []
-        # self.post(x, y, name)
 
-    def push(self, x, y, host="http://localhost:5005/api/loss_charting"):
-        if type(x) == list:
+    def push(self, x, y, host=host):
+        if hasattr(x, "__iter__"):
             self.x_list.extend(x)
             self.y_list.extend(y)
         else:
@@ -44,19 +43,11 @@ class log:
         self.x_count = 0
         self.block_size = block_size
 
-    def push(self, y, host="http://localhost:5005/api/loss_charting"):
-        # if len(self.x_list) == 0:
-        #     # self.x_list.append(self.block_size)
-        #     pass
-        # else:
-        #     self.x_list.append(self.x_list[-1] + self.block_size)
-        if type(y) == list:
+    def push(self, y, host=host):
+        if hasattr(y, "__iter__"):
             self.x_list.extend([i for i in range(self.x_list[-1], len(y))])
             self.y_list.extend(y)
         else:
-            # self.x_list.extend([self.last_x + self.block_size -1]) # is using same value fro size of block_size,
-            # to fix might use empty list with empty values having last_x and being length block_size then adding
-            # values of arange block_size
             self.x_list.extend([self.x_count])
             self.y_list.extend([y])
             self.x_count += 1

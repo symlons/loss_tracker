@@ -54,7 +54,7 @@ function App() {
     >
       <div id="main_1" style={{ width: "800px", height: "400px" }}></div>
       <div className="relative left-96 inline-block">
-        <Store />
+        <Store state={state}/>
         <Query
           state={state}
           setState={setState}
