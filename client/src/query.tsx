@@ -2,6 +2,7 @@ import * as React from "react";
 import * as echarts from "echarts";
 import { default_loading, option, set_option } from "./utils/options";
 
+// TODO: define TS types
 export function Query(props) {
   async function handleChange(event) {
     const target = event.target;
@@ -32,7 +33,7 @@ export function Query(props) {
     const myChart = echarts.getInstanceByDom(chartDom)!;
     myChart.showLoading(default_loading);
 
-    let response = await fetch("/api/query", {
+    let response = await fetch("/api/query", { // TODO: use React Query
       method: "POST",
       credentials: "omit", //same site
       headers: {

@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-
+// TODO: define TS types
 export function handle_socket_connection(live_connection_callback) {
   let name: string;
   let data: { name: [] } | {} = {};
