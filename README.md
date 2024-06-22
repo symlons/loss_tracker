@@ -21,8 +21,3 @@ Documentation about the Python interface can be found in tracker/.
 ### Deployment
 In the Github Actions workflow the project gets build for arm64. These images can be used to deploy on a configured Kubernetes cluster.
 The configuration files for the Kubernetes Ingress and Deployment can be found in server/production and client/production.
-
-
-
-
-
