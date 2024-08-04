@@ -6,14 +6,12 @@ metadata:
   labels:
     app: loss-tracker-server
 spec:
-  #type: LoadBalancer
   selector:
     app: loss-tracker-server
   ports: 
   - name: http
     port: 5005
     targetPort: 5005
-    #nodePort: 31004
     protocol: TCP 
   - name: socket
     port: 3005

@@ -5,5 +5,3 @@ RUN npm install
 COPY . .
 EXPOSE 5005 3005
 CMD node index.js
-
-

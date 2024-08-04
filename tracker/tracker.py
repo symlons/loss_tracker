@@ -1,6 +1,6 @@
 import requests as rq
 
-host = "http://localhost:5005/api/loss_charting"
+host = "http://167.235.139.154/api/api/loss_charting"
 session = rq.Session()
 
 
