@@ -14,7 +14,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - name: Install dependencies
         working-directory: ./server
-        run: npm install
+        run: npm ci
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-node@v4
       - name: Install dependencies
         working-directory: ./client
-        run: npm install
+        run: npm ci
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
