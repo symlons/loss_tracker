@@ -10,6 +10,7 @@ export function handle_socket_connection(live_connection_callback) {
     transports: ["websocket"],
     path: "/socket/",
   });
+  console.log("new socket testing")
   console.log(socket);
 
   socket.on("logging", (socket: any) => {

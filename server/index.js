@@ -38,12 +38,12 @@ const query_name_model = mongoose.model(
   "training_eval"
 );
 
-app.post("/api/python", (req, res) => {
+app.post("/python", (req, res) => {
   io.emit("test", req.body);
   res.end();
 });
 
-app.post("/api/loss_charting", (req, res) => {
+app.post("/loss_charting", (req, res) => {
   console.log(req.body);
   io.emit("logging", req.body);
   res.end();
@@ -54,24 +54,24 @@ app.get("/", (_, res) => {
   console.log("test");
 });
 
-app.get("/api", (_, res) => {
+app.get("/", (_, res) => {
   res.send("/api");
   console.log("test");
 });
 
-app.get("/api/test", (_, res) => {
+app.get("/test", (_, res) => {
   res.send("/api/test");
   console.log("test");
 });
 
-app.post("/api/query", async (req, res) => {
+app.post("/query", async (req, res) => {
   res.status(200);
   let result = await query_name_model.findOne({ name: req.body.query_name });
   console.log("query searching for:", req.body.query_name);
   res.send(result);
 });
 
-app.post("/api/store", (req, res) => {
+app.post("/store", (req, res) => {
   console.log("log");
   console.log(req);
   console.log(req.body);

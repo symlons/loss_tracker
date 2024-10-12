@@ -1,6 +1,7 @@
 import requests as rq
 
-host = "http://167.235.139.154/api/api/loss_charting"
+# host = "http://167.235.139.154/api/api/loss_charting"
+host = "http://127.0.0.1/api/loss_charting"
 session = rq.Session()
 
 

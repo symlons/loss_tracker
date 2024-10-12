@@ -16,7 +16,6 @@ export function update_data(state, query) {
   let max = calc_max(state, query);
 
   if (query.status === false) {
-	  console.log('firstasdfjksj')
     new_name = state.name;
     new_data = state.data[new_name];
     option = set_option(max, new_name, new_data);
