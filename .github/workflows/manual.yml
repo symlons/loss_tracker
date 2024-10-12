@@ -50,7 +50,7 @@ jobs:
         working-directory: ./client
         run: |
           npm i vite
-          export $(cat .env | xargs) # Ensure .env file exists in ./client
+          export $(cat .env | xargs)
           export REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
           npx vite build
       - name: Build and push client image
