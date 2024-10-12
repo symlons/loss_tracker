@@ -49,7 +49,7 @@ jobs:
       - name: Install Vite and build client
         working-directory: ./client
         run: |
-          npm i vite
+          npm install -D vite
           npm install
           export $(cat .env | xargs)
           export REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
