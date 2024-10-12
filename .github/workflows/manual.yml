@@ -9,12 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
       - name: Install dependencies
         working-directory: ./server
-        run: npm ci
+        run: npm install
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -37,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
       - name: Install dependencies
         working-directory: ./client
-        run: npm ci
+        run: npm install
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
