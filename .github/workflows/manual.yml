@@ -46,8 +46,6 @@ jobs:
       - name: Install Vite and build client
         working-directory: ./client
         run: |
-          npm install -D vite --legacy-peer-deps
-          npm install
           export $(cat .env | xargs)
           export REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
           npx vite build
