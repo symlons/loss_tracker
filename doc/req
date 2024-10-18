@@ -6,8 +6,8 @@ curl --location 'http://mlstatstracker.org/api/query' \
 
 
 
-curl --location 'http://localhost:5005/api/query' \
+curl --location 'http://localhost:5005/query' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "first"
+    "query_name": "first"
 }'

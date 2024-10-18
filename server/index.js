@@ -1,29 +1,26 @@
-var MongoClient = require("mongodb").MongoClient;
+import { MongoClient } from 'mongodb'
+import { Server } from "socket.io";
+import http_client from "http";
+import DOMPurify from 'dompurify';
+
 var url = "mongodb://localhost:27017";
-
-const createDOMPurify = require("dompurify");
-const { JSDOM } = require("jsdom");
+import { JSDOM } from "jsdom";
 const window = new JSDOM("").window;
-const DOMPurify = createDOMPurify(window); // TODO: sanitize data
 
-const mongoose = require("mongoose");
-const express = require("express");
+import mongoose from 'mongoose';
+import express from 'express';
 const app = express();
 
 app.use(express.json({ limit: "50mb" }));
-app.use(function (_, _, next) {
+app.use(function (req, res, next) {
   next();
 });
 
 app.use(express.json());
-var http = require("http").createServer(app);
+var http = http_client.createServer(app);
 
 mongoose
-  .connect("mongodb://localhost:27017", {
-    //useCreateIndex: true,
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect("mongodb://localhost:27017")
   .then(() => console.log("connected"))
   .catch((e) => console.log("error", e));
 
@@ -54,14 +51,9 @@ app.get("/", (_, res) => {
   console.log("test");
 });
 
-app.get("/", (_, res) => {
-  res.send("/api");
-  console.log("test");
-});
-
 app.get("/test", (_, res) => {
-  res.send("/api/test");
-  console.log("test");
+  res.send("/test");
+  console.log("/test");
 });
 
 app.post("/query", async (req, res) => {
@@ -119,7 +111,7 @@ app.post("/store", (req, res) => {
   res.end();
 });
 
-const io = require("socket.io")(http, {
+const io = new Server(http, {
   cors: {
     // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
     origin: "*",
