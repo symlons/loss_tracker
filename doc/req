@@ -1,0 +1,13 @@
+curl --location 'http://mlstatstracker.org/api/query' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "first"
+}'
+
+
+
+curl --location 'http://localhost:5005/api/query' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "first"
+}'
