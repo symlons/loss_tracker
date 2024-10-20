@@ -78,7 +78,6 @@ app.post("/store", (req, res) => {
 
   try {
     MongoClient.connect(url, async function (err, db) {
-      // TODO: migrate to latest mongodb version
       if (err) throw err;
       var dbo = db.db("test");
       req.body.name_s.map((item, _) => {
