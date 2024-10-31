@@ -1,8 +1,0 @@
-FROM nginx:stable
-EXPOSE 80
-COPY production/maintanence.conf /etc/nginx/conf.d/maintanence.conf
-COPY dist /usr/share/nginx/html
-# copy static maintanence
-COPY dist/index.html /usr/share/nginx/html/index.html
-STOPSIGNAL SIGQUIT
-CMD ["nginx", "-g", "daemon off;"]
