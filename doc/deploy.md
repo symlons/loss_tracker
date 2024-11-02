@@ -82,3 +82,6 @@ kubectl get pods
 kubectl get services
 kubectl get ingress
 ```
+
+ACTIONS_RUNNER_DEBUG=true ACTIONS_STEP_DEBUG=true act -s ACTIONS_RUNTIME_TOKEN=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 --container-architecture linux/arm64
+

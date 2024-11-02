@@ -1,9 +1,8 @@
 name: loss-tracker-ci
-
 on:
   push:
     branches:
-      - redo  # Specify branches to trigger on
+      - redo
 
 jobs:
   build:
@@ -11,58 +10,79 @@ jobs:
     strategy:
       matrix:
         service: [server, client]
-
+        include:
+          - service: server
+            path: ./server
+          - service: client
+            path: ./client
     steps:
-      # Step 1: Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
 
-      # Step 2: Setup Node.js and Cache Dependencies
       - name: Setup Node.js and Cache Dependencies
         uses: actions/setup-node@v4
         with:
-          node-version: '18'  # Use a stable Node.js version
+          node-version: '18'
           cache: 'npm'
-          cache-dependency-path: ./${{ matrix.service }}/package-lock.json
+          cache-dependency-path: ${{ matrix.path }}/package-lock.json
 
-      # Step 3: Install Dependencies
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.service }}-
+
       - name: Install Dependencies
-        working-directory: ./${{ matrix.service }}
-        run: npm install  # Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: npm install  # Uses clean install instead of npm install
 
-      # Step 4: Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 5: Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker-container
 
-      # Step 6: Build and Push Images with Custom Commands
-      - name: Build and Push Image
+      - name: Build and Push Server Image
         if: matrix.service == 'server'
-        working-directory: ./server
-        run: |
-          docker buildx build --platform linux/arm64 --output type=docker -t symlon/loss-tracker:server .
-          docker push symlon/loss-tracker:server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: symlon/loss-tracker:server
+          platforms: linux/arm64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      - name: Install Vite and Build Client
+      - name: Build Client
         if: matrix.service == 'client'
         working-directory: ./client
         run: |
-          export $(cat .env | xargs)  # Load environment variables
+          export $(cat .env | xargs)
           export REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
-          npx vite build  # Run the Vite build process for client
+          npx vite build --mode production
 
       - name: Build and Push Client Image
         if: matrix.service == 'client'
-        working-directory: ./client
-        run: |
-          docker build --platform linux/arm64 -t symlon/loss-tracker:client -f dockerfile .
-          docker push symlon/loss-tracker:client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: symlon/loss-tracker:client
+          platforms: linux/arm64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
+      # Temporary fix for cache size growth
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
