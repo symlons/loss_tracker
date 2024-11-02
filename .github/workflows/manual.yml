@@ -3,7 +3,7 @@ name: loss-tracker-ci
 on:
   push:
     branches:
-      - main  # Specify branches to trigger on
+      - redo  # Specify branches to trigger on
 
 jobs:
   build:
