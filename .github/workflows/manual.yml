@@ -59,8 +59,6 @@ jobs:
           push: true
           tags: symlon/loss-tracker:server
           platforms: linux/arm64
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
       - name: Build Client
         if: matrix.service == 'client'
@@ -78,8 +76,6 @@ jobs:
           push: true
           tags: symlon/loss-tracker:client
           platforms: linux/arm64
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
       # Temporary fix for cache size growth
       - name: Move cache
