@@ -31,7 +31,6 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
-          path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-${{ matrix.service }}-
@@ -76,9 +75,3 @@ jobs:
           push: true
           tags: symlon/loss-tracker:client
           platforms: linux/arm64
-
-      # Temporary fix for cache size growth
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
