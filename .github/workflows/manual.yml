@@ -75,3 +75,16 @@ jobs:
           push: true
           tags: symlon/loss-tracker:client
           platforms: linux/arm64
+
+      - name: Set up Kubeconfig
+        if: matrix.service == 'client'
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+      - name: Deploy to K3s
+        if: matrix.service == 'client'
+        run: |
+          kubectl rollout restart deployment/client-deployment
+          kubectl rollout status deployment/client-deployment # Optional: wait for rollout to complete
