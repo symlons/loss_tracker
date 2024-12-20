@@ -87,4 +87,5 @@ jobs:
         if: matrix.service == 'client'
         run: |
           kubectl rollout restart deployment/client-deployment
-          kubectl rollout status deployment/client-deployment # Optional: wait for rollout to complete
+          kubectl rollout restart deployment/client-deployment -n losstracker
+          kubectl rollout status deployment/client-deployment -n losstracker 
