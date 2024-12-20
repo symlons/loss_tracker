@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
   def __init__(self):
     self.API_HOST = os.getenv("API_HOST", "prod")

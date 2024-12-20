@@ -11,6 +11,7 @@ class xy:
     self.x_list = []
     self.y_list = []
     self.host = Config().api_host
+    print(self.host)
 
   def push(self, x, y):
     if hasattr(x, "__iter__"):
@@ -20,6 +21,7 @@ class xy:
       self.x_list.extend([x])
       self.y_list.extend([y])
     if len(self.x_list) % self.block_size == 0:
+      print(f"Pushing to host: {self.host}")
       session.post(
         self.host,
         json={
