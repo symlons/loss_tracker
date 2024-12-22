@@ -6,18 +6,26 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.middlewares: losstracker-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   rules:
-  - host: tracker.com
+  - host: mlstatstracker.org
     http:
       paths:
+      - path: /api/socket
+        pathType: Prefix
+        backend:
+          service:
+            name: load-balancer-server
+            port:
+              number: 3005  # Socket.IO port
       - path: /api
         pathType: Prefix
         backend:
           service:
             name: load-balancer-server
             port:
-              number: 5005
+              number: 5005  # Regular HTTP port
       - path: /
         pathType: Prefix
         backend:

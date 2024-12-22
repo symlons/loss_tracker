@@ -8,7 +8,7 @@ export function handle_socket_connection(live_connection_callback) {
   console.log(import.meta.env.VITE_SOCKET_HOST)
   const socket = io(import.meta.env.VITE_SOCKET_HOST, {
     transports: ["websocket"],
-    path: "/socket/",
+    path: "/api/socket/",
   });
   console.log("new socket testing")
   console.log(socket);

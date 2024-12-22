@@ -10,7 +10,7 @@ class Config:
     self.default_hosts = {
       "dev": "http://127.0.0.1:5005/loss_charting",
       "minikube": "http://127.0.0.1/api/loss_charting",
-      "prod": "http://167.235.139.154/api/api/loss_charting",
+      "prod": "http://mlstatstracker.org/api/loss_charting",
     }
 
   @property
