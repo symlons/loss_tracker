@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       matrix:
         service: [server, client]
@@ -95,6 +95,6 @@ jobs:
       - name: Deploy to K3s
         if: matrix.service == 'client'
         run: |
-          kubectl rollout restart deployment/loss-tracker-nginx-client
+          kubectl rollout restart deployment/loss-tracker-nginx-client -n losstracker
           kubectl rollout restart deployment/loss-tracker-nginx-client -n losstracker
           kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker
