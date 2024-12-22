@@ -3,10 +3,10 @@ on:
   push:
     branches:
       - redo
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90  # Added overall job timeout
     strategy:
       matrix:
         service: [server, client]
@@ -31,13 +31,14 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
+          path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-${{ matrix.service }}-
 
       - name: Install Dependencies
         working-directory: ${{ matrix.path }}
-        run: npm install  # Uses clean install instead of npm install
+        run: npm ci  # Changed to npm ci for clean install
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -49,6 +50,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker-container
+          driver-opts: |
+            network=host
+          buildkitd-flags: --debug
 
       - name: Build and Push Server Image
         if: matrix.service == 'server'
@@ -58,6 +62,13 @@ jobs:
           push: true
           tags: symlon/loss-tracker:server
           platforms: linux/arm64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          provenance: false
+          outputs: type=registry,push=true
+          push-args: |
+            --max-concurrent-uploads 1
+            --retry-count 3
 
       - name: Build Client
         if: matrix.service == 'client'
@@ -75,6 +86,18 @@ jobs:
           push: true
           tags: symlon/loss-tracker:client
           platforms: linux/arm64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          provenance: false
+          outputs: type=registry,push=true
+          push-args: |
+            --max-concurrent-uploads 1
+            --retry-count 3
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Set up Kubeconfig
         if: matrix.service == 'client'
@@ -86,6 +109,6 @@ jobs:
       - name: Deploy to K3s
         if: matrix.service == 'client'
         run: |
-          kubectl rollout restart deployment/client-deployment
-          kubectl rollout restart deployment/client-deployment -n losstracker
-          kubectl rollout status deployment/client-deployment -n losstracker 
+          kubectl rollout restart deployment/loss-tracker-nginx-client
+          kubectl rollout restart deployment/loss-tracker-nginx-client -n losstracker
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker
