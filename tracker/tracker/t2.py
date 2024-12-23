@@ -10,8 +10,12 @@ def train_step(epoch):
 
 
 def training_loop():
-  loss_tracker, accuracy_tracker = xy(name="training_loss"), xy(name="training_accuracy")
-  num_epochs = 10000
+  loss_tracker = xy(name="training_loss")
+  accuracy_tracker = xy(name="training_accuracy")
+  trackers = [loss_tracker, accuracy_tracker]
+
+  num_epochs = 1000
+  print("Starting training loop...")
   start_time = time.time()
 
   for epoch in range(num_epochs):
@@ -21,21 +25,17 @@ def training_loop():
     if epoch % 10 == 0:
       print(f"Epoch {epoch}: Loss = {loss:.4f}, Accuracy = {accuracy:.4f}")
 
-  print("Flushing data before shutdown.")
-  loss_tracker.flush()
-  accuracy_tracker.flush()
-
-  while any(q.qsize() > 0 for q in [loss_tracker.manager.batch_queue, accuracy_tracker.manager.batch_queue]):
-    print(
-      f"Waiting for batches... (Loss: {loss_tracker.manager.batch_queue.qsize()}, Accuracy: {accuracy_tracker.manager.batch_queue.qsize()})"
-    )
+  print("\nFlushing and processing remaining batches...")
+  while any(tracker.manager.batch_queue.qsize() > 0 for tracker in trackers):
+    queue_sizes = {tracker.name: tracker.manager.batch_queue.qsize() for tracker in trackers}
+    print(f"Waiting for batches... {queue_sizes}")
     time.sleep(1)
 
-  print("Shutting down background thread.")
-  loss_tracker.manager.shutdown(wait=True)
-  accuracy_tracker.manager.shutdown(wait=True)
+  for tracker in trackers:
+    tracker.close()
 
-  print(f"Training completed in {time.time() - start_time:.2f} seconds")
+  end_time = time.time()
+  print(f"\nTraining completed in {end_time - start_time:.2f} seconds")
 
 
 if __name__ == "__main__":

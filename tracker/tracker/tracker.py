@@ -2,15 +2,15 @@ import random
 import time
 from enum import Enum
 from dataclasses import dataclass, field
-from queue import Queue, Empty
+from queue import PriorityQueue, Empty
 import logging
 import threading
 import traceback
 import requests
 from typing import Optional
+from collections import Counter
+from tqdm import tqdm
 
-
-# Configure logging for the library
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -29,21 +29,22 @@ class PrioritizedBatch:
   retry_count: int = field(default=0, compare=False)
 
 
+@dataclass
 class TrackerConfig:
   batch_size: int = 100
-  max_retries: int = 3  # Max retries before failing
-  timeout: float = 10.0  # Timeout for each request
+  max_retries: int = 3
+  timeout: float = 10.0
   max_workers: int = 4
-  api_host: str = "http://localhost:5005/batch"  # Corrected to batch endpoint
-  use_mock_api: bool = False  # Flag to switch between mock and actual API
-  daemon: bool = True  # Background thread as daemon by default
+  api_host: str = "http://localhost:5005/batch"
+  use_mock_api: bool = False
+  daemon: bool = True
 
 
 class BackgroundTrackerManager:
   def __init__(self, config: Optional[TrackerConfig] = None):
     self.config = config or TrackerConfig()
-    self.batch_queue = Queue()
-    self.metrics = {"sent_batches": 0, "failed_batches": 0, "queued_batches": 0}
+    self.batch_queue = PriorityQueue()
+    self.metrics = Counter()
     self.stop_event = threading.Event()
     self.background_thread = threading.Thread(target=self._background_process, daemon=self.config.daemon)
     self.background_thread.start()
@@ -51,10 +52,7 @@ class BackgroundTrackerManager:
   def _background_process(self):
     while not self.stop_event.is_set():
       try:
-        batch = self.batch_queue.get(timeout=1)  # Wait for a new batch or timeout
-        # logger.debug(f"Processing batch: {batch}")  # Log the batch being processed
-
-        # Simulate sending the batch (replace with actual logic)
+        batch = self.batch_queue.get(timeout=1)
         success = self._process_batch(batch)
         if success:
           logger.debug(f"Successfully processed batch: {batch}")
@@ -62,50 +60,39 @@ class BackgroundTrackerManager:
         else:
           logger.error(f"Failed to process batch: {batch}")
           self.metrics["failed_batches"] += 1
-
         self.batch_queue.task_done()
-
       except Empty:
-        continue  # Timeout occurred, continue checking for new batches
-
+        continue
       except Exception as e:
-        logger.error(f"Error processing batch: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Unexpected error: {e}")
+        logger.debug(traceback.format_exc())
 
   def _process_batch(self, batch: PrioritizedBatch):
-    """
-    This function processes a batch, e.g., by sending it to a backend API.
-    For now, it simulates a request.
-    """
     try:
-      # logger.info(f"Processing batch: {batch.data}")
-
-      # Simulate sending data to the backend via a POST request
       if self.config.use_mock_api:
         logger.info("Simulating API request...")
-        return True  # Mock success
-      else:
-        # Actual API call - send data to the backend
-        url = self.config.api_host
-        retries = batch.retry_count
+        return True
 
-        while retries < self.config.max_retries:
-          try:
-            response = requests.post(url, json=batch.data, timeout=self.config.timeout)
-            if response.status_code == 200:
-              logger.info(f"Successfully sent batch to backend: {response.status_code}")
-              return True
-            else:
-              logger.error(f"Failed to send batch to backend, status code: {response.status_code}")
-              retries += 1
-              time.sleep(2)  # Wait before retrying
-          except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            retries += 1
-            time.sleep(2)  # Wait before retrying
+      url = self.config.api_host
+      retries = 0
 
-        logger.error(f"Batch failed after {self.config.max_retries} retries.")
-        return False
+      while retries < self.config.max_retries:
+        try:
+          response = requests.post(url, json=batch.data, timeout=self.config.timeout)
+          if response.status_code == 200:
+            logger.info(f"Batch successfully sent: {response.status_code}")
+            return True
+          else:
+            logger.warning(f"Backend returned error: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+          logger.warning(f"Retrying due to error: {e}")
+
+        retries += 1
+        backoff_time = (2**retries) + random.uniform(0, 1)
+        time.sleep(backoff_time)
+
+      logger.error("Max retries exceeded for batch.")
+      return False
     except Exception as e:
       logger.error(f"Error processing batch: {e}")
       return False
@@ -118,7 +105,7 @@ class BackgroundTrackerManager:
     self.stop_event.set()
     if wait:
       self.background_thread.join(timeout=self.config.timeout)
-    logger.info(f"Final metrics: {self.metrics}")
+    logger.info(f"Final metrics: {dict(self.metrics)}")
 
 
 class BaseTracker:
@@ -127,30 +114,22 @@ class BaseTracker:
     self.config = config or TrackerConfig()
     self.manager = BackgroundTrackerManager(self.config)
     self.priority = priority
+    self._reset_data()
+
+  def _reset_data(self):
     self.x_data = []
     self.y_data = []
 
   def push(self, x: any, y: any):
-    """
-    Push data point with minimal overhead.
-    Automatically flushes when batch size is reached.
-    """
     self.x_data.append(x)
     self.y_data.append(y)
-
-    # Auto-flush when batch size is reached
     if len(self.x_data) >= self.config.batch_size:
       self.flush()
 
   def flush(self):
-    """
-    Flush accumulated data as a batch.
-    Returns immediately, processing happens in background.
-    """
     if not self.x_data or not self.y_data:
       return
 
-    # Create a prioritized batch
     batch = PrioritizedBatch(
       priority=self.priority,
       timestamp=time.time(),
@@ -160,22 +139,14 @@ class BaseTracker:
         "yCoordinates": self.y_data.copy(),
       },
     )
-
-    # Queue batch for background processing
     self.manager.queue_batch(batch)
-
-    # Clear the data after queuing
-    self.x_data.clear()
-    self.y_data.clear()
+    self._reset_data()
 
   def close(self):
-    """
-    Flush any remaining data and shutdown the background processing.
-    """
-    # Flush any remaining data
     self.flush()
-
-    # Shutdown the background manager
+    while self.manager.batch_queue.qsize() > 0:
+      logger.info(f"Waiting for {self.name} batches... (Remaining: {self.manager.batch_queue.qsize()})")
+      time.sleep(1)
     self.manager.shutdown(wait=True)
 
 
@@ -192,25 +163,14 @@ class XYTracker(BaseTracker):
     super().__init__(name=name, config=config, priority=priority)
 
   def push(self, x: any, y: any):
-    """
-    Push multiple data points or single point.
-    Supports both single and iterable inputs.
-    """
-    if hasattr(x, "__iter__"):
-      self.x_data.extend(x)
-      self.y_data.extend(y)
-    else:
-      self.x_data.append(x)
-      self.y_data.append(y)
-
-    # Auto-flush when batch size is reached
+    if not hasattr(x, "__iter__"):
+      x, y = [x], [y]
+    if len(x) != len(y):
+      raise ValueError("x and y must have the same length")
+    self.x_data.extend(x)
+    self.y_data.extend(y)
     if len(self.x_data) >= self.config.batch_size:
       self.flush()
-
-  def zero_track(self):
-    """Reset tracking to zero."""
-    self.x_data = [0]
-    self.y_data = []
 
 
 class LogTracker(BaseTracker):
@@ -225,13 +185,9 @@ class LogTracker(BaseTracker):
     config.batch_size = block_size
     super().__init__(name=name, config=config, priority=priority)
     self.x_count = 0
-    self.zero_track()
+    self._reset_data()
 
   def push(self, y: any):
-    """
-    Push logarithmic tracking data points.
-    Automatically assigns x-coordinates.
-    """
     if hasattr(y, "__iter__"):
       last_x = self.x_data[-1] if self.x_data else 0
       self.x_data.extend(range(last_x + 1, last_x + len(y) + 1))
@@ -240,15 +196,8 @@ class LogTracker(BaseTracker):
       self.x_data.append(self.x_count)
       self.y_data.append(y)
       self.x_count += 1
-
-    # Auto-flush when batch size is reached
     if len(self.y_data) >= self.config.batch_size:
       self.flush()
-
-  def zero_track(self):
-    """Reset tracking to zero."""
-    self.x_data = [0]
-    self.y_data = []
 
 
 # Convenience aliases for backward compatibility
@@ -273,28 +222,20 @@ def train_step(epoch):
   return loss, accuracy
 
 
-def training_loop():
-  # Create trackers for loss and accuracy
+def training_loop(num_epochs=1000):
   loss_tracker = xy(name="training_loss")
   accuracy_tracker = xy(name="training_accuracy")
 
-  num_epochs = 1000  # Number of epochs for training
   print("Starting training loop...")
   start_time = time.time()
 
-  # Iterate over epochs
-  for epoch in range(num_epochs):
-    loss, accuracy = train_step(epoch)  # Generate loss and accuracy for the current epoch
-
-    # Push the data points to the trackers (loss and accuracy)
+  for epoch in tqdm(range(num_epochs), desc="Training Progress"):
+    loss, accuracy = train_step(epoch)
     loss_tracker.push(epoch, loss)
     accuracy_tracker.push(epoch, accuracy)
-
-    # Print training progress every 10 epochs
     if epoch % 10 == 0:
-      print(f"Epoch {epoch}: Loss = {loss:.4f}, Accuracy = {accuracy:.4f}")
+      logger.info(f"Epoch {epoch}: Loss = {loss:.4f}, Accuracy = {accuracy:.4f}")
 
-  # Close trackers to flush remaining data and process all batches
   loss_tracker.close()
   accuracy_tracker.close()
 
