@@ -1,141 +1,168 @@
-import { MongoClient } from 'mongodb'
+import { MongoClient } from 'mongodb';
 import { Server } from "socket.io";
-import http_client from "http";
-import DOMPurify from 'dompurify';
-
-var url = "mongodb://localhost:27017";
-import { JSDOM } from "jsdom";
-const window = new JSDOM("").window;
-
-import mongoose from 'mongoose';
+import http from "http";
 import express from 'express';
-const app = express();
+import chalk from 'chalk';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import Joi from 'joi';
 
-app.use(express.json({ limit: "50mb" }));
-app.use(function (req, res, next) {
+// Constants
+const HTTP_PORT = process.env.PORT || 5005;
+const SOCKET_PORT = 3005;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
+
+// Initialize Express
+const app = express();
+const httpServer = http.createServer(app);
+
+// Initialize Socket.IO on the same server
+const io = new Server(httpServer, {
+  cors: { origin: "*" }, // Permissive CORS for development
+  path: "/socket/"
+});
+
+// MongoDB client
+let mongoClient;
+async function getMongoClient() {
+  if (!mongoClient) {
+    mongoClient = new MongoClient(MONGODB_URI);
+    await mongoClient.connect();
+  }
+  return mongoClient;
+}
+
+// Middleware
+app.use(helmet());
+app.use(express.json({ limit: "10mb" }));
+
+// Rate limiter applied only to /batch
+const batchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
+
+// Logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log(chalk.cyan(`→ ${req.method} ${req.path}`));
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    const statusColor = status >= 400 ? chalk.red : chalk.green;
+
+    console.log(
+      statusColor(`← ${status}`),
+      chalk.gray(`${duration}ms`),
+      chalk.yellow(req.path)
+    );
+  });
+
   next();
 });
 
-app.use(express.json());
-var http = http_client.createServer(app);
-
-mongoose
-  .connect("mongodb://localhost:27017")
-  .then(() => console.log("connected"))
-  .catch((e) => console.log("error", e));
-
-const query_name_model = mongoose.model(
-  "query_name_model",
-  new mongoose.Schema({
-    name: {
-      type: String,
-      required: true,
-    },
-  }),
-  "training_eval"
-);
-
-app.post("/python", (req, res) => {
-  io.emit("test", req.body);
-  res.end();
+// Input validation schemas
+const batchSchema = Joi.object({
+  name: Joi.string().required(),
+  xCoordinates: Joi.array().items(Joi.number()).required(),
+  yCoordinates: Joi.array().items(Joi.number()).required()
 });
 
-app.post("/loss_charting", (req, res) => {
-  console.log(req.body);
-  io.emit("logging", req.body);
-  res.end();
+const querySchema = Joi.object({
+  query_name: Joi.string().required()
 });
 
-app.get("/", (_, res) => {
-  res.send("testin the root path /");
-  console.log("test");
-});
-
-app.get("/test", (_, res) => {
-  res.send("/test");
-  console.log("/test");
-});
-
-app.post("/query", async (req, res) => {
-  res.status(200);
-  let result = await query_name_model.findOne({ name: req.body.query_name });
-  console.log("query searching for:", req.body.query_name);
-  res.send(result);
-});
-
-app.post("/store", (req, res) => {
-  console.log("log");
-  console.log(req);
-  console.log(req.body);
-  req.body.name_s.map((item, _) => {
-    console.log(item);
-    req.body.data[item].map((item, _) => {
-      item.name = parseFloat(item.name);
-      item.value[0] = parseFloat(item.value[0]);
-      item.value[1] = parseFloat(item.value[1]);
-    });
-  });
-
+// Routes
+app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
-    MongoClient.connect(url, async function (err, db) {
-      if (err) throw err;
-      var dbo = db.db("test");
-      req.body.name_s.map((item, _) => {
-        console.log(item);
-        let filter = { [item]: { $exists: 1 } };
-        let update = {
-          $set: {
-            [item]: req.body.data[item],
-            name: item,
-          },
-        };
-        try {
-          dbo
-            .collection("training_eval")
-            .updateOne(filter, update, { upsert: true }, function (err, _) {
-              if (err) throw err;
-              console.log("1 document inserted");
-              db.close();
-            });
-        } catch {
-          console.log(err);
-          console.log("database related error");
-        }
-        console.log("tried fetching");
-      });
-    });
-  } catch {
-    console.log("database related error");
+    const { error } = batchSchema.validate(req.body);
+    if (error) throw new Error(error.details[0].message);
+
+    const { name, xCoordinates, yCoordinates } = req.body;
+	  console.log(req.body)
+    const point = {
+      x: xCoordinates.map(x => Number(x)),
+      y: yCoordinates.map(y => Number(y)),
+      timestamp: new Date()
+    };
+
+    const client = await getMongoClient();
+    const db = client.db('training');
+
+    await db.collection('points').updateOne(
+      { name },
+      {
+        $push: { points: point },
+        $set: { lastUpdate: new Date() }
+      },
+      { upsert: true }
+    );
+
+    io.emit("dataUpdate", { name, point });
+
+    console.log(chalk.green('✓ Batch processed successfully:'),
+      chalk.gray(`${name} - ${point.x.length} points`));
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
   }
-  res.end();
 });
 
-const io = new Server(http, {
-  cors: {
-    // origin: ["http://localhost:3000"], // if it doesn't matter at all type:" " "*" "
-    origin: "*",
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  path: "/socket/",
-  transports: ["websocket", "polling"],
-  allowEIO3: true,
+app.post("/query", async (req, res, next) => {
+  try {
+    const { error } = querySchema.validate(req.body);
+    if (error) throw new Error(error.details[0].message);
+
+    const { query_name } = req.body;
+
+    const client = await getMongoClient();
+    const db = client.db('training');
+    const result = await db.collection('points').findOne({ name: query_name });
+
+    console.log(chalk.green('✓ Query successful:'),
+      chalk.gray(`${query_name} - ${result ? 'found' : 'not found'}`));
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(chalk.red('✗ Error:'), err.message);
+  res.status(400).json({ error: err.message });
+});
+
+// Socket.IO handlers
 io.on("connection", (socket) => {
-  console.log("New socket.io connection");
-  socket.send("hello from node server");
+  console.log(chalk.green('✓ Socket connected:'), chalk.gray(socket.id));
+
+  socket.on("disconnect", () => {
+    console.log(chalk.yellow('○ Socket disconnected:'), chalk.gray(socket.id));
+  });
 });
 
-io.on("error", (error) => {
-  console.log(error);
+// Start server
+httpServer.listen(HTTP_PORT, () => {
+  console.log(chalk.green('✓ HTTP & Socket.IO server running on port:'),
+    chalk.bold(HTTP_PORT));
 });
 
-const socket_PORT = 3005;
-const port = 5005;
-
-http.listen(socket_PORT, () => {
-  console.log("listening on *:" + socket_PORT);
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log(chalk.yellow('○ Graceful shutdown initiated'));
+  try {
+    if (mongoClient) await mongoClient.close();
+    httpServer.close(() => {
+      console.log(chalk.green('✓ Servers shut down successfully'));
+      process.exit(0);
+    });
+  } catch (err) {
+    console.error(chalk.red('✗ Error during shutdown:'), err.message);
+    process.exit(1);
+  }
 });
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
