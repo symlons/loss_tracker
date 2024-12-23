@@ -6,15 +6,17 @@ load_dotenv()
 
 class Config:
   def __init__(self):
+    print("first lole")
     self.API_HOST = os.getenv("API_HOST", "prod")
     self.default_hosts = {
       "dev": "http://127.0.0.1:5005/loss_charting",
       "minikube": "http://127.0.0.1/api/loss_charting",
-      "prod": "http://mlstatstracker.org/api/loss_charting",
+      "prod": "http://167.235.139.154/api/api/loss_charting",
     }
 
   @property
   def api_host(self):
+    print("lol")
     if self.API_HOST not in self.default_hosts:
       raise ValueError(
         f"Unknown HOST value: {self.API_HOST}. " f"Allowed values are: {', '.join(self.default_hosts.keys())}"
