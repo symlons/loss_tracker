@@ -98,8 +98,6 @@ class MetricBuffer:
 
 
 class MetricLogger:
-  """Ultra high-performance metric logger for ML training"""
-
   def __init__(
     self, metric_name: str, endpoint: Optional[str] = None, max_queue_size: int = 1000, initial_batch_size: int = 50, enable_compression: bool = False
   ):
@@ -107,153 +105,102 @@ class MetricLogger:
     self.endpoint = endpoint
     self.enable_compression = enable_compression
     self.max_queue_size = max_queue_size
+    self.batch_size = initial_batch_size
 
-    # Efficient batching
-    self.batcher = MetricBatcher(initial_size=initial_batch_size, min_size=10, max_size=max_queue_size // 2)
-
-    # Pre-allocated buffer with initial capacity
-    self.buffer = MetricBuffer(initial_batch_size)
-
-    # Thread synchronization
     self._queue = queue.Queue(maxsize=max_queue_size)
     self._stop_flag = threading.Event()
-    self._data_ready = threading.Event()
     self._worker = None
 
-    # Async support
-    self._event_loop = None
-    if endpoint:
-      self._event_loop = asyncio.new_event_loop()
-      self._async_tasks = set()
-
-    # Performance tracking
+    # Stats
     self.processed_count = 0
     self.dropped_count = 0
     self.failed_batches = 0
-    self.total_added = 0
 
-  def _get_queue_size(self) -> int:
-    """Get queue size with fallback for systems where qsize() is not implemented"""
-    try:
-      return self._queue.qsize()
-    except NotImplementedError:
-      return max(0, self.total_added - self.processed_count)
-
-  def start(self) -> None:
-    """Start the worker thread"""
+  def start(self):
     if self._worker is None:
       self._worker = threading.Thread(target=self._process_loop, daemon=True)
       self._worker.start()
 
-  def log(self, metrics: Dict[str, Any]) -> bool:
-    """Non-blocking log operation with minimal synchronization"""
+  def log(self, step: int, value: float, metric_type: str = "loss") -> bool:
+    """Log a single metric value"""
     try:
-      self._queue.put_nowait(metrics)
-      self.total_added += 1
-      self._data_ready.set()
+      metric = {"name": f"{self.metric_name}_{metric_type}", "xCoordinates": [step], "yCoordinates": [value]}
+      self._queue.put_nowait(metric)
       return True
     except queue.Full:
       self.dropped_count += 1
       return False
 
-  def _process_loop(self) -> None:
-    """Main processing loop optimized for throughput"""
-    if self._event_loop:
-      asyncio.set_event_loop(self._event_loop)
-
+  def _process_loop(self):
     while not self._stop_flag.is_set() or not self._queue.empty():
-      batch_size = self.batcher.current_size
-      start_time = time.time()
-
-      # Process available metrics
-      processed = self._process_batch(batch_size)
-
-      if processed > 0:
-        process_time = time.time() - start_time
-        self.batcher.adjust_batch_size(self._get_queue_size(), self.max_queue_size, process_time)
-        self._data_ready.clear()
-      elif not self._stop_flag.is_set():  # Only wait if not stopping
-        self._data_ready.wait(timeout=0.01)
-
-  def _process_batch(self, batch_size: int) -> int:
-    """Process a batch of metrics with minimal allocation"""
-    processed = 0
-    self.buffer.ensure_capacity(batch_size)  # Ensure capacity before processing
-    self.buffer.clear()  # Clear previous batch data
-
-    # Collect metrics first
-    while processed < batch_size:
       try:
-        metric = self._queue.get_nowait()
-        if metric is not None:
-          self.buffer.metrics[processed] = metric
-          self.buffer._active_indices.append(processed)
-          for key, value in metric.items():
-            self.buffer.grouped[key].append(value)
-          processed += 1
-      except queue.Empty:
-        break
+        # Process one metric at a time
+        try:
+          metric = self._queue.get_nowait()
+        except queue.Empty:
+          time.sleep(0.1)
+          continue
 
-    if processed > 0:
-      grouped_metrics = dict(self.buffer.grouped)
-      if self.endpoint:
-        if self._event_loop:
-          asyncio.run_coroutine_threadsafe(self._send_metrics_batch(grouped_metrics), self._event_loop)
-      else:
-        self._log_metrics_batch(grouped_metrics)
+        if self.endpoint:
+          # Create new event loop for this thread
+          loop = asyncio.new_event_loop()
+          asyncio.set_event_loop(loop)
+          try:
+            loop.run_until_complete(self._send_metric(metric))
+            self.processed_count += 1
+          finally:
+            loop.close()
+        else:
+          self._log_metric(metric)
+          self.processed_count += 1
 
-      self.processed_count += processed
+      except Exception as e:
+        print(f"Error processing metric: {e}")
+        self.failed_batches += 1
 
-    return processed
-
-  def _compress_metrics(self, data: Dict) -> bytes:
-    """Compress metrics data if enabled"""
-    json_data = json.dumps(data).encode()
-    return gzip.compress(json_data) if self.enable_compression else json_data
-
-  async def _send_metrics_batch(self, grouped_metrics: Dict[str, List]) -> None:
-    """Asynchronously send metrics batch to endpoint"""
+  async def _send_metric(self, metric: Dict[str, Any]) -> None:
+    """Send single metric to endpoint"""
     try:
       headers = {"Content-Type": "application/json"}
       if self.enable_compression:
         headers["Content-Encoding"] = "gzip"
 
-      data = self._compress_metrics(grouped_metrics)
+      data = json.dumps(metric).encode()
+      if self.enable_compression:
+        data = gzip.compress(data)
 
       async with aiohttp.ClientSession() as session:
         async with session.post(self.endpoint, data=data, headers=headers, timeout=30) as response:
           if response.status >= 400:
+            print(f"Error sending metric: HTTP {response.status}")
+            text = await response.text()
+            print(f"Response: {text}")
             self.failed_batches += 1
-            print(f"Error sending metrics batch: HTTP {response.status}")
-    except Exception as e:
-      self.failed_batches += 1
-      print(f"Error sending metrics: {e}")
+          else:
+            print(f"Successfully sent {metric['name']}: {metric['yCoordinates'][0]}")
 
-  def _log_metrics_batch(self, grouped_metrics: Dict[str, List]) -> None:
-    """Log metrics batch locally"""
-    print(f"[{self.metric_name}] Batch metrics: {grouped_metrics}")
+    except Exception as e:
+      print(f"Error sending metric: {e}")
+      self.failed_batches += 1
+
+  def _log_metric(self, metric: Dict[str, Any]) -> None:
+    """Log metric locally"""
+    print(f"[{self.metric_name}] Metric: {metric}")
 
   def get_stats(self) -> Dict[str, Any]:
-    """Get current performance statistics"""
+    """Get current statistics"""
     return {
       "processed_count": self.processed_count,
       "dropped_count": self.dropped_count,
       "failed_batches": self.failed_batches,
-      "current_batch_size": self.batcher.current_size,
-      "queue_size": self._get_queue_size(),
-      "avg_process_time": self.batcher.processing_times.mean(),
+      "queue_size": self._queue.qsize(),
     }
 
   def stop(self, timeout: float = 1.0) -> None:
-    """Stop logger with minimal blocking"""
-    if self._worker is not None and self._worker.is_alive():
+    """Stop logger cleanly"""
+    if self._worker and self._worker.is_alive():
       self._stop_flag.set()
-      self._data_ready.set()  # Wake up worker
       self._worker.join(timeout)
-
-      if self._event_loop:
-        self._event_loop.stop()
-        self._event_loop.close()
 
 
 class LoggerManager:
