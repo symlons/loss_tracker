@@ -1,13 +1,19 @@
 import asyncio
 import random
 import math
-from metric_logger import MetricLogger, MetricConfig, LoggerMode
+from metric_logger import MetricLogger, MetricConfig
 
 
 async def simulate_training():
   """Simulate a training loop with realistic metric values"""
   # Configure the logger
-  config = MetricConfig(name="model_training", endpoint="http://localhost:5005/batch", batch_size=500, enable_compression=True, retry_attempts=3)
+  config = MetricConfig(
+    name="model_training",
+    endpoint="http://localhost:5005/batch",
+    batch_size=500,
+    enable_compression=False,  # Disable compression for testing
+    retry_attempts=3,
+  )
 
   # Initialize logger
   logger = MetricLogger(config)
@@ -30,10 +36,7 @@ async def simulate_training():
         global_step = epoch * steps_per_epoch + step
 
         # Simulate training metrics
-        # Loss decreases exponentially with noise
         loss = initial_loss * math.exp(-0.001 * global_step) + random.uniform(-0.1, 0.1)
-
-        # Accuracy increases with diminishing returns and noise
         accuracy = initial_accuracy + (1 - initial_accuracy) * (1 - math.exp(-0.001 * global_step))
         accuracy = max(0.0, min(1.0, accuracy + random.uniform(-0.05, 0.05)))
 
@@ -48,7 +51,7 @@ async def simulate_training():
           await logger.log(global_step, val_loss, metric_type="val_loss")
           await logger.log(global_step, val_accuracy, metric_type="val_accuracy")
 
-        # Print progress and logger stats
+        # Print progress and logger stats every 25 steps
         if step % 25 == 0:
           print(f"\nStep {step + 1}/{steps_per_epoch}")
           print(f"Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
@@ -58,13 +61,10 @@ async def simulate_training():
           print(f"Dropped: {stats['dropped_count']}")
           print(f"Failed: {stats['failed_batches']}")
 
-        # Simulate some computation time
+        # Simulate some computation time (optional, for realism)
         # await asyncio.sleep(0.01)
 
     print("\nTraining completed. Running final evaluation...")
-
-    # Switch to post-training mode for final metrics
-    logger.set_mode(LoggerMode.POST_TRAINING)
 
     # Log final evaluation metrics
     final_loss = initial_loss * math.exp(-0.001 * num_epochs * steps_per_epoch)
@@ -86,3 +86,4 @@ async def simulate_training():
 if __name__ == "__main__":
   # Run the simulation
   asyncio.run(simulate_training())
+

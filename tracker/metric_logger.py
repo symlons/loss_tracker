@@ -1,25 +1,22 @@
-# metric_logger.py
-
 import asyncio
-import aiohttp
+import random
 import time
 import json
 import gzip
-from typing import Dict, Any, Optional, List, Union, Tuple
-from enum import Enum
 from collections import defaultdict
 from dataclasses import dataclass
-from array import array
-from itertools import islice
-import threading
-import queue
+from enum import Enum
+from typing import Dict, Any, List, Optional
+import aiohttp
 
 
+# Enum for Logger Modes
 class LoggerMode(Enum):
   TRAINING = "training"
   POST_TRAINING = "post_training"
 
 
+# Configuration class for metric logging
 @dataclass
 class MetricConfig:
   """Configuration for metric collection"""
@@ -33,12 +30,11 @@ class MetricConfig:
   enable_compression: bool = False
 
 
+# Rolling stats class to calculate rolling statistics
 class RollingStats:
-  """Efficient rolling statistics calculator using circular buffer"""
-
   def __init__(self, window_size: int = 100):
     self.window_size = window_size
-    self._buffer = array("d", [0.0] * window_size)
+    self._buffer = [0.0] * window_size
     self._index = 0
     self._count = 0
     self._sum = 0.0
@@ -52,10 +48,8 @@ class RollingStats:
     else:
       old_value = self._buffer[self._index]
       self._sum = self._sum - old_value + value
-
     self._buffer[self._index] = value
     self._index = (self._index + 1) % self.window_size
-
     self._min = min(self._min, value)
     self._max = max(self._max, value)
 
@@ -69,15 +63,13 @@ class RollingStats:
     return self._max if self._count > 0 else 0.0
 
 
+# MetricBatcher for adjusting batch size dynamically
 class MetricBatcher:
-  """Efficient metric batching with gradual size adjustment"""
-
   def __init__(self, initial_size: int, min_size: int, max_size: int):
     self.current_size = initial_size
     self.min_size = min_size
     self.max_size = max_size
     self.size_multiplier = 1.2
-
     self.processing_times = RollingStats()
     self.queue_sizes = RollingStats()
 
@@ -85,7 +77,6 @@ class MetricBatcher:
     """Gradually adjust batch size based on performance metrics"""
     self.processing_times.add(process_time)
     self.queue_sizes.add(queue_size)
-
     queue_pressure = queue_size / max_queue_size
     avg_process_time = self.processing_times.mean()
 
@@ -97,25 +88,18 @@ class MetricBatcher:
       self.current_size = max(new_size, self.min_size)
 
 
+# MetricBuffer for efficient pre-allocated buffer for metric processing
 class MetricBuffer:
-  """Efficient pre-allocated buffer for metric processing"""
-
   def __init__(self, initial_size: int = 1000):
     self.metrics = [None] * initial_size
     self.grouped = defaultdict(list)
     self._active_indices = []
 
-  def _resize_buffer(self, size: int) -> None:
-    """Resize buffer efficiently if needed"""
-    current_size = len(self.metrics)
-    if current_size < size:
-      self.metrics.extend([None] * (size - current_size))
-
   def ensure_capacity(self, required_size: int) -> None:
     """Ensure buffer has enough capacity"""
     if required_size > len(self.metrics):
       new_size = max(required_size, len(self.metrics) * 2)
-      self._resize_buffer(new_size)
+      self.metrics.extend([None] * (new_size - len(self.metrics)))
 
   def clear(self) -> None:
     """Clear active metrics and grouped data"""
@@ -138,18 +122,14 @@ class MetricBuffer:
     return [self.metrics[idx] for idx in self._active_indices]
 
 
+# AdaptiveInterval for managing adaptive flush intervals
 class AdaptiveInterval:
-  """Manages adaptive flush intervals based on system load"""
-
   def __init__(self):
     self.min_interval = 2.0  # Minimum interval under heavy load
     self.max_interval = 30.0  # Maximum interval when quiet
     self.normal_interval = 12.0  # Target interval during normal training
     self.post_training_interval = 1.0  # Post-training interval
-
     self.load_stats = RollingStats(20)
-    self.pressure_threshold_high = 0.8
-    self.pressure_threshold_low = 0.2
 
   def get_interval(self, mode: LoggerMode, queue_pressure: float) -> float:
     """Calculate appropriate interval based on mode and system load"""
@@ -159,15 +139,16 @@ class AdaptiveInterval:
     self.load_stats.add(queue_pressure)
     avg_load = self.load_stats.mean()
 
-    if avg_load > self.pressure_threshold_high:
+    if avg_load > 0.8:
       return self.min_interval
-    elif avg_load < self.pressure_threshold_low:
+    elif avg_load < 0.2:
       return min(self.max_interval, self.normal_interval * 1.5)
     else:
-      load_factor = (avg_load - self.pressure_threshold_low) / (self.pressure_threshold_high - self.pressure_threshold_low)
+      load_factor = (avg_load - 0.2) / 0.6
       return self.normal_interval + (self.min_interval - self.normal_interval) * load_factor
 
 
+# MetricLogger for logging metrics and sending to server
 class MetricLogger:
   """Advanced metric logger with adaptive batching and dual-mode operation"""
 
@@ -176,13 +157,10 @@ class MetricLogger:
     self._queue = asyncio.Queue(maxsize=config.max_queue_size)
     self._stop_event = asyncio.Event()
     self.mode = LoggerMode.TRAINING
-
-    # Adaptive components
     self.adaptive_interval = AdaptiveInterval()
     self._buffer = MetricBuffer(config.batch_size * 2)
-    self._batcher = MetricBatcher(initial_size=config.batch_size, min_size=max(10, config.batch_size // 2), max_size=min(200, config.batch_size * 2))
+    self._batcher = MetricBatcher(initial_size=config.batch_size, min_size=config.batch_size // 2, max_size=config.batch_size * 2)
 
-    # Performance tracking
     self.metrics = {
       "processed_count": 0,
       "dropped_count": 0,
@@ -193,7 +171,6 @@ class MetricLogger:
       "batch_sizes": RollingStats(100),
     }
 
-    # Start processing task
     self._process_task = asyncio.create_task(self._process_metrics())
     self._last_flush_time = time.monotonic()
 
@@ -201,24 +178,25 @@ class MetricLogger:
     """Log a metric value"""
     if self._stop_event.is_set():
       return False
-
     try:
+      metric_name = f"{self.config.name}_{metric_type}"
+      if not metric_name:
+        print(f"Warning: Metric has no valid name for step {step}, value {value}")
+        return False
+
       metric = {
-        "name": f"{self.config.name}_{metric_type}",
+        "name": metric_name,
         "step": float(step),  # Ensure numeric
         "value": float(value),  # Ensure numeric
       }
 
-      # Adjust timeout based on mode
       timeout = 0.1 if self.mode == LoggerMode.POST_TRAINING else 0.001
-
       try:
         await asyncio.wait_for(self._queue.put(metric), timeout=timeout)
         return True
       except (asyncio.QueueFull, asyncio.TimeoutError):
         self.metrics["dropped_count"] += 1
         return False
-
     except Exception as e:
       print(f"Logging error: {e}")
       return False
@@ -229,133 +207,89 @@ class MetricLogger:
       while not self._stop_event.is_set() or not self._queue.empty():
         batch_start = time.monotonic()
 
-        # Get current adaptive interval
+        # Collect batch
+        batch = []
         current_interval = self.adaptive_interval.get_interval(self.mode, self._queue.qsize() / self._queue.maxsize)
+        desired_batch_size = self._batcher.current_size
 
-        try:
-          # Collect batch
-          batch = []
-          desired_batch_size = self._batcher.current_size
+        while len(batch) < desired_batch_size:
+          try:
+            time_since_flush = time.monotonic() - self._last_flush_time
+            timeout = max(0.001, current_interval - time_since_flush)
 
-          while len(batch) < desired_batch_size:
-            try:
-              time_since_flush = time.monotonic() - self._last_flush_time
-              timeout = max(0.001, current_interval - time_since_flush)
+            metric = await asyncio.wait_for(self._queue.get(), timeout=timeout)
+            batch.append(metric)
+            self._queue.task_done()
+          except asyncio.TimeoutError:
+            break
 
-              metric = await asyncio.wait_for(self._queue.get(), timeout=timeout)
-              batch.append(metric)
-              self._queue.task_done()
-            except asyncio.TimeoutError:
-              break
+        if batch:
+          self._buffer.clear()
+          for metric in batch:
+            self._buffer.add(metric)
 
-          # Process batch if not empty
-          if batch:
-            self._buffer.clear()
-            for metric in batch:
-              self._buffer.add(metric)
+          await self._send_batch(session, self._buffer.get_metrics())
+          self._last_flush_time = time.monotonic()
 
-            await self._send_batch(session, self._buffer.get_metrics())
-            self._last_flush_time = time.monotonic()
-
-            # Update batch size based on performance
-            batch_time = time.monotonic() - batch_start
-            self._batcher.adjust_batch_size(self._queue.qsize(), self._queue.maxsize, batch_time)
-
-          # Update metrics
           batch_time = time.monotonic() - batch_start
-          self.metrics["batch_processing_times"].add(batch_time)
-          self.metrics["queue_pressure"].add(self._queue.qsize() / self._queue.maxsize)
-          self.metrics["batch_sizes"].add(len(batch))
+          self._batcher.adjust_batch_size(self._queue.qsize(), self._queue.maxsize, batch_time)
 
-        except Exception as e:
-          print(f"Processing error: {e}")
-          await asyncio.sleep(0.1)
+        self.metrics["batch_processing_times"].add(batch_time)
+        self.metrics["queue_pressure"].add(self._queue.qsize() / self._queue.maxsize)
+        self.metrics["batch_sizes"].add(len(batch))
 
   async def _send_batch(self, session: aiohttp.ClientSession, batch: List[Dict]) -> None:
-    """Send a batch of metrics with retries"""
-    if not self.config.endpoint:
-      return
-
-    # Group metrics by name
-    grouped = defaultdict(lambda: {"xCoordinates": [], "yCoordinates": []})
-    for metric in batch:
-      name = metric["name"]
-      grouped[name]["xCoordinates"].append(metric["step"])
-      grouped[name]["yCoordinates"].append(metric["value"])
-
-    # Process each group
-    for name, data in grouped.items():
-      payload = {"name": name, "xCoordinates": [float(x) for x in data["xCoordinates"]], "yCoordinates": [float(y) for y in data["yCoordinates"]]}
-
-      # Compression if enabled
-      headers = {"Content-Type": "application/json"}
-      if self.config.enable_compression:
-        payload_bytes = json.dumps(payload).encode("utf-8")
-        payload = gzip.compress(payload_bytes)
-        headers["Content-Encoding"] = "gzip"
-
-      # Send with retries
-      for attempt in range(self.config.retry_attempts):
-        try:
-          async with session.post(
-            self.config.endpoint,
-            json=payload if not self.config.enable_compression else None,
-            data=payload if self.config.enable_compression else None,
-            headers=headers,
-            timeout=aiohttp.ClientTimeout(total=1),
-          ) as response:
-            if response.status < 400:
-              self.metrics["processed_count"] += len(data["xCoordinates"])
-              break
-            else:
-              print(f"Failed to send metrics: HTTP {response.status}")
-              if attempt < self.config.retry_attempts - 1:
-                self.metrics["retried_batches"] += 1
-                await asyncio.sleep(self.config.retry_delay * (attempt + 1))
-              else:
-                self.metrics["failed_batches"] += 1
-
-        except Exception as e:
-          print(f"Error sending batch (attempt {attempt + 1}): {e}")
-          if attempt < self.config.retry_attempts - 1:
-            self.metrics["retried_batches"] += 1
-            await asyncio.sleep(self.config.retry_delay * (attempt + 1))
-          else:
-            self.metrics["failed_batches"] += 1
-
-  def set_mode(self, mode: LoggerMode) -> None:
-    """Switch between training and post-training modes"""
-    self.mode = mode
-    print(f"Switched to {mode.value} mode")
-
-  async def stop(self, timeout: float = 5.0) -> None:
-    """Stop processing with graceful shutdown"""
-    self.set_mode(LoggerMode.POST_TRAINING)
-    self._stop_event.set()
-
-    try:
-      await asyncio.wait_for(self._process_task, timeout=timeout)
-    except asyncio.TimeoutError:
-      print("Processing did not complete within timeout")
-    finally:
-      if not self._process_task.done():
-        self._process_task.cancel()
-        try:
-          await self._process_task
-        except asyncio.CancelledError:
-          pass
-
-  def get_stats(self) -> Dict[str, Any]:
-    """Get detailed performance statistics"""
-    return {
-      **self.metrics,
-      "queue_size": self._queue.qsize(),
-      "avg_batch_time": self.metrics["batch_processing_times"].mean(),
-      "avg_queue_pressure": self.metrics["queue_pressure"].mean(),
-      "avg_batch_size": self.metrics["batch_sizes"].mean(),
-      "mode": self.mode.value,
-      "min_batch_time": self.metrics["batch_processing_times"].min(),
-      "max_batch_time": self.metrics["batch_processing_times"].max(),
-      "current_batch_size": self._batcher.current_size,
+    """Send the batch of metrics to the server"""
+    url = self.config.endpoint or "http://localhost:5005/batch"
+    headers = {
+      "Content-Type": "application/json",
     }
 
+    # Prepare the batch with xCoordinates and yCoordinates
+    x_coordinates = [metric["step"] for metric in batch]
+    y_coordinates = [metric["value"] for metric in batch]
+
+    batch_data = {
+      "name": "test",
+      "xCoordinates": x_coordinates,  # Array of steps
+      "yCoordinates": y_coordinates,  # Array of values
+    }
+
+    if self.config.enable_compression:
+      json_data = json.dumps(batch_data)
+      compressed_data = gzip.compress(json_data.encode())
+      headers["Content-Encoding"] = "gzip"
+      body = compressed_data
+    else:
+      body = json.dumps(batch_data).encode()
+
+    try:
+      async with session.post(url, data=body, headers=headers) as response:
+        if response.status == 200:
+          print(f"Batch sent successfully")
+        else:
+          print(f"Failed to send batch, status code {response.status}")
+    except Exception as e:
+      print(f"Error sending batch: {e}")
+      self.metrics["failed_batches"] += 1
+
+  def stop(self) -> None:
+    """Stop logging and flush remaining metrics"""
+    self._stop_event.set()
+
+
+# Example usage:
+async def main():
+  config = MetricConfig(name="example_metric", endpoint="http://localhost:5005/batch", max_queue_size=100, batch_size=10)
+  logger = MetricLogger(config=config)
+
+  # Log some example metrics
+  for step in range(1, 100):
+    await logger.log(step, random.random(), "accuracy")
+    await logger.log(step, random.random(), "loss")
+
+  logger.stop()
+
+
+# Run the main function
+asyncio.run(main())
