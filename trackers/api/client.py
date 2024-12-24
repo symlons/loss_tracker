@@ -1,9 +1,11 @@
 import requests
+import logging
+import aiohttp
+import asyncio
+from typing import Any, List, Union, Dict
+from ..config.tracker_config import TrackerConfig
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from typing import Dict, Any
-import logging
-from ..config.tracker_config import TrackerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +26,7 @@ class APIClient:
 
   def send_batch(self, batch_data: Dict[str, Any]) -> bool:
     if self.config.use_mock_api:
-      logger.info(
-        f"Mock API mode: Simulating successful batch send for {batch_data['name']} "
-        f"with {len(batch_data['xCoordinates'])} points"
-      )
+      logger.info(f"Mock API mode: Simulating successful batch send for {batch_data['name']}")
       return True
 
     try:
@@ -41,4 +40,3 @@ class APIClient:
     except requests.exceptions.RequestException as e:
       logger.error(f"API request failed: {e}")
       return False
-

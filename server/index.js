@@ -1,13 +1,13 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient } from "mongodb";
 import { Server } from "socket.io";
 import http from "http";
-import express from 'express';
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import Joi from 'joi';
-import winston from 'winston';
-import chalk from 'chalk';
-import pkg from 'lodash';
+import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import Joi from "joi";
+import winston from "winston";
+import chalk from "chalk";
+import pkg from "lodash";
 const { debounce } = pkg;
 
 const HTTP_PORT = process.env.PORT || 5005;
@@ -18,7 +18,7 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: { origin: "*" },
-  path: "/socket/"
+  path: "/socket/",
 });
 
 let mongoClient;
@@ -39,21 +39,19 @@ async function getMongoClient() {
 }
 
 const logger = winston.createLogger({
-  level: 'info',
+  level: "info",
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
-        winston.format.simple()
-      )
+        winston.format.simple(),
+      ),
     }),
     new winston.transports.File({
-      filename: 'app.log',
-      format: winston.format.combine(
-        winston.format.json()
-      )
-    })
-  ]
+      filename: "app.log",
+      format: winston.format.combine(winston.format.json()),
+    }),
+  ],
 });
 
 app.use(helmet());
@@ -63,21 +61,25 @@ app.use(express.json({ limit: "10mb" }));
 const batchLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10000,
-  message: 'Too many requests, please try again later.',
+  message: "Too many requests, please try again later.",
   handler: (req, res, next) => {
     logger.warn(`Rate limit exceeded for ${req.ip} on /batch`);
-    res.status(429).json({ error: 'Rate limit exceeded, please try again later.' });
-  }
+    res
+      .status(429)
+      .json({ error: "Rate limit exceeded, please try again later." });
+  },
 });
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000000, // Max number of requests
-  message: 'Too many requests, please try again later.',
+  message: "Too many requests, please try again later.",
   handler: (req, res, next) => {
     logger.warn(`Rate limit exceeded for ${req.ip} globally`);
-    res.status(429).json({ error: 'Rate limit exceeded, please try again later.' });
-  }
+    res
+      .status(429)
+      .json({ error: "Rate limit exceeded, please try again later." });
+  },
 });
 
 app.use(generalLimiter);
@@ -87,12 +89,12 @@ app.use((req, res, next) => {
   const start = Date.now();
   logger.info(`→ ${req.method} ${req.path}`);
 
-  res.on('finish', () => {
+  res.on("finish", () => {
     const duration = Date.now() - start;
     const status = res.statusCode;
     logger.log({
-      level: status >= 400 ? 'warn' : 'info',
-      message: `${status} ${duration}ms ${req.path}`
+      level: status >= 400 ? "warn" : "info",
+      message: `${status} ${duration}ms ${req.path}`,
     });
   });
 
@@ -103,11 +105,11 @@ app.use((req, res, next) => {
 const batchSchema = Joi.object({
   name: Joi.string().required(),
   xCoordinates: Joi.array().items(Joi.number()).required(),
-  yCoordinates: Joi.array().items(Joi.number()).required()
+  yCoordinates: Joi.array().items(Joi.number()).required(),
 });
 
 const querySchema = Joi.object({
-  query_name: Joi.string().required()
+  query_name: Joi.string().required(),
 });
 
 // In-memory batch counter per name
@@ -118,50 +120,72 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
     const { error } = batchSchema.validate(req.body);
     if (error) {
-      logger.error("✗ Batch request validation failed", { error: error.details, body: req.body });
-      throw new Error(`Validation Error: ${error.details[0].message}`);
+      logger.error("✗ Batch request validation failed", {
+        error: error.details,
+        body: {
+          name: req.body.name,
+          xCoordinatesExists: req.body.xCoordinates ? true : typeof req.body.xCoordinates,
+          yCoordinatesExists: req.body.yCoordinates ? true : typeof req.body.yCoordinates,
+        },
+      });
+      throw new Error(`Validation Error`);
     }
 
     const { name, xCoordinates, yCoordinates } = req.body;
-    const validatedXCoordinates = Array.isArray(xCoordinates) ? xCoordinates : [];
-    const validatedYCoordinates = Array.isArray(yCoordinates) ? yCoordinates : [];
+    const validatedXCoordinates = Array.isArray(xCoordinates)
+      ? xCoordinates
+      : [];
+    const validatedYCoordinates = Array.isArray(yCoordinates)
+      ? yCoordinates
+      : [];
 
     const point = {
-      x: validatedXCoordinates.map(x => Number(x)),
-      y: validatedYCoordinates.map(y => Number(y)),
+      x: validatedXCoordinates.map((x) => Number(x)),
+      y: validatedYCoordinates.map((y) => Number(y)),
       timestamp: new Date(),
     };
 
     // MongoDB client and database operations
     const client = await getMongoClient();
-    const db = client.db('training');
+    const db = client.db("training");
 
     // Perform the MongoDB update operation
-    await db.collection('points').updateOne(
-      { name },
-      { $push: { points: point }, $set: { lastUpdate: new Date() } },
-      { upsert: true }
-    );
+    await db
+      .collection("points")
+      .updateOne(
+        { name },
+        { $push: { points: point }, $set: { lastUpdate: new Date() } },
+        { upsert: true },
+      );
 
     // Increment the batch count for this name
     batchCounter[name] = (batchCounter[name] || 0) + 1;
 
     // Log the batch count for debugging
-    logger.info(`${chalk.green('✓')} Batch processed for ${chalk.blue(name)}: ${chalk.yellow(batchCounter[name])} batch(es) received`);
+    logger.info(
+      `${chalk.green("✓")} Batch processed for ${chalk.blue(name)}: ${chalk.yellow(batchCounter[name])} batch(es) received`,
+    );
 
     // Emit the data to the socket (without debounce to handle each batch)
-    const emitPayload = { 
-      name, 
-      xCoordinates: validatedXCoordinates, 
-      yCoordinates: validatedYCoordinates 
+    const emitPayload = {
+      name,
+      xCoordinates: validatedXCoordinates,
+      yCoordinates: validatedYCoordinates,
     };
     io.emit("logging", emitPayload);
 
     res.status(200).json({ success: true });
-
   } catch (error) {
-    logger.error("✗ Error in /batch endpoint", { error: error.message, stack: error.stack, requestData: req.body });
-    next(error);  // Pass the error to the global error handler
+    logger.error("✗ Error in /batch endpoint", {
+      error: error.message,
+      stack: error.stack,
+      requestData: {
+        name: req.body.name,
+        xCoordinatesExists: req.body.xCoordinates ? true : typeof req.body.xCoordinates,
+        yCoordinatesExists: req.body.yCoordinates ? true : typeof req.body.yCoordinates,
+      },
+    });
+    next(error); // Pass the error to the global error handler
   }
 });
 
@@ -173,10 +197,12 @@ app.post("/query", async (req, res, next) => {
 
     const { query_name } = req.body;
     const client = await getMongoClient();
-    const db = client.db('training');
-    const result = await db.collection('points').findOne({ name: query_name });
+    const db = client.db("training");
+    const result = await db.collection("points").findOne({ name: query_name });
 
-    logger.info(`✓ Query successful: ${query_name} - ${result ? 'found' : 'not found'}`);
+    logger.info(
+      `✓ Query successful: ${query_name} - ${result ? "found" : "not found"}`,
+    );
 
     res.status(200).json(result);
   } catch (error) {
@@ -196,8 +222,8 @@ app.use((err, req, res, next) => {
   if (err instanceof CustomError) {
     res.status(err.statusCode).json({ error: err.message });
   } else {
-    logger.error('✗ Error:', err.message);
-    res.status(500).json({ error: 'Internal Server Error' });
+    logger.error("✗ Error:", err.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -216,18 +242,17 @@ httpServer.listen(HTTP_PORT, () => {
 });
 
 // Graceful Shutdown
-process.on('SIGINT', async () => {
-  console.log('Gracefully shutting down...');
+process.on("SIGINT", async () => {
+  console.log("Gracefully shutting down...");
   try {
     if (mongoClient) await mongoClient.close();
     io.close();
     httpServer.close(() => {
-      console.log('Server shut down');
+      console.log("Server shut down");
       process.exit(0);
     });
   } catch (err) {
-    logger.error('Error during shutdown', err);
+    logger.error("Error during shutdown", err);
     process.exit(1);
   }
 });
-

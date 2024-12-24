@@ -1,7 +1,11 @@
-import aiohttp
+import requests
 import logging
-from typing import Dict, Any
+import aiohttp
+import asyncio
+from typing import Any, List, Union, Dict
 from ..config.tracker_config import TrackerConfig
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry  # Asynchronous API client
 
 logger = logging.getLogger(__name__)
 

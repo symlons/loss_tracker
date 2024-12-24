@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Callable
+from typing import Dict, Callable
 from .env_config import EnvConfig
 
 
@@ -16,6 +16,9 @@ class TrackerConfig:
   test_mode: bool = field(default=False)
   test_callbacks: Dict[str, Callable] = field(default_factory=dict)
   _env_config: EnvConfig = field(default_factory=EnvConfig.get_instance)
+
+  # Add use_async_api as part of TrackerConfig
+  use_async_api: bool = field(default=False)  # <-- Add use_async_api here
 
   def __post_init__(self):
     if self.batch_size <= 0:
