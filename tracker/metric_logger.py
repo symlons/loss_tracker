@@ -4,8 +4,7 @@ import time
 import json
 import gzip
 import random
-from typing import Dict, Any, Optional, List, Union
-from enum import Enum
+from typing import Dict, Any, Optional
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from array import array
@@ -17,7 +16,7 @@ class MetricConfig:
 
   name: str
   endpoint: Optional[str] = None
-  max_buffer_size: int = 500000  # Large buffer size
+  max_buffer_size: int = 500000
   max_memory_buffer_time: float = 300.0  # 5 minutes max buffering
   batch_size: int = 50
   retry_attempts: int = 3
@@ -57,59 +56,6 @@ class RollingStats:
 
   def max(self) -> float:
     return self._max if self._count > 0 else 0.0
-
-
-class MetricBatcher:
-  def __init__(self, initial_size: int, min_size: int, max_size: int):
-    self.current_size = initial_size
-    self.min_size = min_size
-    self.max_size = max_size
-    self.size_multiplier = 1.2
-    self.processing_times = RollingStats()
-    self.queue_sizes = RollingStats()
-
-  def adjust_batch_size(self, queue_size: int, max_queue_size: int, process_time: float) -> None:
-    """Gradually adjust batch size based on performance metrics"""
-    self.processing_times.add(process_time)
-    self.queue_sizes.add(queue_size)
-
-    queue_pressure = queue_size / max_queue_size
-    avg_process_time = self.processing_times.mean()
-
-    if queue_pressure > 0.8 and avg_process_time < 0.01:
-      new_size = int(self.current_size * self.size_multiplier)
-      self.current_size = min(new_size, self.max_size)
-    elif queue_pressure < 0.2 and self.queue_sizes.mean() < max_queue_size * 0.3:
-      new_size = int(self.current_size / self.size_multiplier)
-      self.current_size = max(new_size, self.min_size)
-
-  async def stop(self, timeout: float = 10.0):
-    """Graceful shutdown, ensuring all metrics are attempted to be sent"""
-    self._stop_event.set()
-
-    try:
-      # Wait for processing to complete
-      await asyncio.wait_for(self._process_task, timeout=timeout)
-    except asyncio.TimeoutError:
-      print(f"Processing did not complete within {timeout} seconds.")
-      self._process_task.cancel()
-
-    # Print final metrics
-    print("Final Metrics Logging Stats:")
-    for key, value in self.get_stats().items():
-      print(f"{key}: {value}")
-
-  def get_stats(self) -> Dict[str, Any]:
-    """Get detailed performance statistics"""
-    return {
-      **self.metrics,
-      "buffer_size": len(self._buffer),
-      "avg_batch_time": self.metrics["batch_processing_times"].mean(),
-      "avg_batch_size": self.metrics["batch_sizes"].mean(),
-      "min_batch_time": self.metrics["batch_processing_times"].min(),
-      "max_batch_time": self.metrics["batch_processing_times"].max(),
-      "current_batch_size": self._batcher.current_size,
-    }
 
 
 class MetricLogger:
