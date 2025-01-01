@@ -85,11 +85,48 @@ class MetricLogger:
         self.metrics["total_logged"] += 1
         self.metrics["total_pending"] += 1
 
+        # Check buffer size and flush if needed
+        await self._check_and_flush_buffer()
+
       return True
 
     except Exception as e:
       print(f"Logging error: {e}")
       return False
+
+  async def _check_and_flush_buffer(self):
+    """Flush metrics if buffer size exceeds 80% of max buffer size"""
+    if len(self._buffer) >= int(self.config.max_buffer_size * 0.8):
+      await self._flush_metrics()  # Process the metrics in smaller batches
+
+  async def _flush_metrics(self):
+    """Flush metrics proactively in smaller batches to reduce memory consumption"""
+    async with self._buffer_lock:
+      batch_to_send = list(self._buffer)  # Copy buffer to prevent changes during processing
+
+    grouped = defaultdict(lambda: {"xCoordinates": [], "yCoordinates": []})
+    for metric in batch_to_send:
+      name = metric["name"]
+      grouped[name]["xCoordinates"].append(metric["step"])
+      grouped[name]["yCoordinates"].append(metric["value"])
+
+    # Send batches
+    async with aiohttp.ClientSession() as session:
+      for name, data in grouped.items():
+        try:
+          await self._send_batch(session, name, data)
+
+          # Remove sent metrics from buffer
+          async with self._buffer_lock:
+            for metric in batch_to_send:
+              if metric in self._buffer:
+                self._buffer.remove(metric)
+                self.metrics["total_sent"] += 1
+                self.metrics["total_pending"] -= 1
+
+        except Exception as send_error:
+          print(f"Failed to send batch for {name}: {send_error}")
+          self.metrics["send_failures"] += 1
 
   async def _process_metrics(self):
     """Continuously attempt to send buffered metrics"""
