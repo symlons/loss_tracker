@@ -12,12 +12,9 @@ from array import array
 
 @dataclass
 class MetricConfig:
-  """Configuration for metric collection"""
-
   name: str
   endpoint: Optional[str] = None
   max_buffer_size: int = 500000
-  max_memory_buffer_time: float = 300.0  # 5 minutes max buffering
   batch_size: int = 50
   retry_attempts: int = 3
   retry_delay: float = 0.5
@@ -216,7 +213,6 @@ async def simulate_training():
     endpoint="http://localhost:5005/batch",
     batch_size=100,
     max_buffer_size=10000,
-    max_memory_buffer_time=60.0,  # 1 minute max buffering
   )
   logger = MetricLogger(config)
 

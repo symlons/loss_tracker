@@ -2,7 +2,6 @@ import asyncio
 import random
 import numpy as np
 from metric_logger import MetricLogger, MetricConfig
-import time
 
 from dotenv import load_dotenv
 import os
@@ -23,7 +22,6 @@ class Config:
 
 
 async def simulate_ml_training():
-  """Simulate a complex machine learning training scenario"""
   config = MetricConfig(
     name="advanced_ml_experiment",
     endpoint=Config().api_host,
@@ -38,12 +36,10 @@ async def simulate_ml_training():
   try:
     num_epochs = 5000
     for epoch in range(num_epochs):
-      # Simulate training metrics with varying characteristics
       loss = np.random.exponential(scale=0.1)
       accuracy = min(1.0, max(0.0, random.gauss(0.9, 0.05)))
       learning_rate = 0.001 * (0.95**epoch)
 
-      # Log multiple metrics per epoch
       await logger.log(epoch, loss, "loss")
       await logger.log(epoch, accuracy, "accuracy")
       await logger.log(epoch, learning_rate, "learning_rate")
@@ -55,9 +51,8 @@ async def simulate_ml_training():
   except Exception as e:
     print(f"Training interrupted: {e}")
   finally:
-    # Ensure all metrics are sent
     print("training already finished ------------------------------")
-    await logger.stop()
+    await logger.stop()  # ensures all metrics are sent
 
     print("\nTraining Metrics Summary:")
     stats = logger.get_stats()
