@@ -2,13 +2,31 @@ import asyncio
 import random
 import numpy as np
 from metric_logger import MetricLogger, MetricConfig
+import time
+
+from dotenv import load_dotenv
+import os
+
+
+class Config:
+  def __init__(self):
+    load_dotenv()
+    self.default_hosts = {
+      "dev": "http://localhost:5005/batch",
+      "minikube": "http://127.0.0.1/api/batch",
+      "prod": "http://mlstatstracker.org/api/batch",
+    }
+    self.api_host = self.default_hosts.get(os.getenv("API_HOST", "minikube"), None)
+    print(self.api_host)
+    if self.api_host is None:
+      raise ValueError(f"Invalid API_HOST. Choose from {', '.join(self.default_hosts.keys())}.")
 
 
 async def simulate_ml_training():
   """Simulate a complex machine learning training scenario"""
   config = MetricConfig(
     name="advanced_ml_experiment",
-    endpoint="http://localhost:5005/batch",
+    endpoint=Config().api_host,
     max_buffer_size=100000,
     batch_size=100,
     retry_attempts=5,
