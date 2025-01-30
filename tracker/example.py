@@ -13,7 +13,7 @@ class Config:
     self.default_hosts = {
       "dev": "http://localhost:5005/batch",
       "minikube": "http://127.0.0.1/api/batch",
-      "prod": "http://mlstatstracker.org/api/batch",
+      "prod": "http://mlstatstracker.org:3005/api/batch",
     }
     self.api_host = self.default_hosts.get(os.getenv("API_HOST", "minikube"), None)
     print(self.api_host)
