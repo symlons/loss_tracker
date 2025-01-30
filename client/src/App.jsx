@@ -3,8 +3,8 @@ import React from "react";
 import { useState, useEffect } from "react";
 
 import { handle_socket_connection } from "./live_connections.ts";
-import { option } from "./utils/options"; // options
-import { Store } from "./store_data.tsx"; // components
+import { option } from "./utils/options";
+import { Store } from "./store_data.tsx";
 import { Query } from "./query.tsx";
 import { update_data } from "./utils/update_data.ts"; // utils
 
