@@ -97,12 +97,10 @@ jobs:
         if: matrix.service == 'client'
         run: |
           kubectl rollout restart deployment/loss-tracker-nginx-client -n losstracker
-          kubectl rollout restart deployment/loss-tracker-nginx-client -n losstracker
           kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker
 
       - name: Deploy to K3s Server
         if: matrix.service == 'server'
         run: |
-          kubectl rollout restart deployment/loss-tracker-server -n losstracker
           kubectl rollout restart deployment/loss-tracker-server -n losstracker
           kubectl rollout status deployment/loss-tracker-server -n losstracker
