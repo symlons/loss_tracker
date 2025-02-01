@@ -17,7 +17,6 @@ if (!process.env.MONGODB_URI) {
 
 const HTTP_PORT = process.env.PORT || 5005;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
-console.log(MONGODB_URI);
 
 const app = express();
 app.set("trust proxy", 1);
