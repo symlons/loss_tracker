@@ -92,6 +92,13 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
           chmod 600 ~/.kube/config
+
+      - name: Set up Kubeconfig
+        if: matrix.service == 'server'
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
           
       - name: Deploy to K3s Client
         if: matrix.service == 'client'
