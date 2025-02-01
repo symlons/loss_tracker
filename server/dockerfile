@@ -1,5 +1,6 @@
 FROM node:20-alpine
 WORKDIR /backend
+ARG MONGODB_URI
 COPY package.json package-lock.json ./
 RUN npm install
 COPY . .

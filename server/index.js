@@ -11,7 +11,9 @@ import pkg from "lodash";
 import dotenv from "dotenv";
 const { debounce } = pkg;
 
-dotenv.config();
+if (!process.env.MONGODB_URI) {
+  dotenv.config();
+}
 
 const HTTP_PORT = process.env.PORT || 5005;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
