@@ -15,8 +15,10 @@ dotenv.config();
 
 const HTTP_PORT = process.env.PORT || 5005;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
+console.log(MONGODB_URI);
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
@@ -127,8 +129,12 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
         error: error.details,
         body: {
           name: req.body.name,
-          xCoordinatesExists: req.body.xCoordinates ? true : typeof req.body.xCoordinates,
-          yCoordinatesExists: req.body.yCoordinates ? true : typeof req.body.yCoordinates,
+          xCoordinatesExists: req.body.xCoordinates
+            ? true
+            : typeof req.body.xCoordinates,
+          yCoordinatesExists: req.body.yCoordinates
+            ? true
+            : typeof req.body.yCoordinates,
         },
       });
       throw new Error(`Validation Error`);
@@ -184,8 +190,12 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
       stack: error.stack,
       requestData: {
         name: req.body.name,
-        xCoordinatesExists: req.body.xCoordinates ? true : typeof req.body.xCoordinates,
-        yCoordinatesExists: req.body.yCoordinates ? true : typeof req.body.yCoordinates,
+        xCoordinatesExists: req.body.xCoordinates
+          ? true
+          : typeof req.body.xCoordinates,
+        yCoordinatesExists: req.body.yCoordinates
+          ? true
+          : typeof req.body.yCoordinates,
       },
     });
     next(error); // Pass the error to the global error handler
@@ -199,7 +209,9 @@ app.post("/query", async (req, res, next) => {
     if (error) throw new Error(error.details[0].message);
 
     const { query_name } = req.body;
+    console.log("Searching for:", query_name);
     const client = await getMongoClient();
+    console.log('Issue already here')
     const db = client.db("training");
     const result = await db.collection("points").findOne({ name: query_name });
 
@@ -209,6 +221,7 @@ app.post("/query", async (req, res, next) => {
 
     res.status(200).json(result);
   } catch (error) {
+    console.log(error);
     next(error);
   }
 });
