@@ -4,4 +4,5 @@ COPY package.json package-lock.json ./
 RUN npm install
 COPY . .
 EXPOSE 5005 3005
+ENV MONGODB_URI=${MONGODB_URI}
 CMD node index.js
