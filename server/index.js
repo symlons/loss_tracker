@@ -8,7 +8,10 @@ import Joi from "joi";
 import winston from "winston";
 import chalk from "chalk";
 import pkg from "lodash";
+import dotenv from "dotenv";
 const { debounce } = pkg;
+
+dotenv.config();
 
 const HTTP_PORT = process.env.PORT || 5005;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
