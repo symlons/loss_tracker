@@ -67,7 +67,7 @@ jobs:
         working-directory: ./client
         run: |
           export $(cat .env | xargs)
-          export REACT_APP_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
+          export VITE_SOCKET_HOST=${{ secrets.REACT_APP_SOCKET_HOST }}
           npx vite build --mode production
 
       - name: Build and Push Client Image
