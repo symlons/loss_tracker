@@ -18,7 +18,7 @@ spec:
           service:
             name: load-balancer-server
             port:
-              number: 3005  # Socket.IO port
+              number: 5005  # Socket.IO port
       - path: /api
         pathType: Prefix
         backend:
