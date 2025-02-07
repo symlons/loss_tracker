@@ -9,6 +9,8 @@ import winston from "winston";
 import chalk from "chalk";
 import pkg from "lodash";
 import dotenv from "dotenv";
+import crypto from 'crypto'; // Import crypto
+
 const { debounce } = pkg;
 
 if (!process.env.MONGODB_URI) {
@@ -128,6 +130,7 @@ const batchSchema = Joi.object({
   name: Joi.string().required(),
   xCoordinates: Joi.array().items(Joi.number()).required(),
   yCoordinates: Joi.array().items(Joi.number()).required(),
+  runId: Joi.string().optional(), // runId is now optional
 });
 
 const querySchema = Joi.object({
@@ -157,7 +160,8 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
       throw new Error(`Validation Error`);
     }
 
-    const { name, xCoordinates, yCoordinates } = req.body;
+    const { name, xCoordinates, yCoordinates, runId: incomingRunId } = req.body; // Destructure runId
+
     const validatedXCoordinates = Array.isArray(xCoordinates)
       ? xCoordinates
       : [];
@@ -165,11 +169,15 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
       ? yCoordinates
       : [];
 
+    // Generate a runId if one is not provided
+    const runId = incomingRunId || crypto.randomUUID(); // Use incomingRunId if provided, otherwise generate a new one
+
     // Ensure the point structure is correct with x and y inside it
     const point = {
       x: validatedXCoordinates.map((x) => Number(x)), // x coordinates as an array
       y: validatedYCoordinates.map((y) => Number(y)), // y coordinates as an array
       timestamp: new Date(), // Timestamp for when the point is created
+      runId: runId, // Include runId in the point object
     };
 
     // Log the point to verify structure before updating the database
@@ -180,7 +188,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
 
     // Update or insert document with upsert: true
     await db.collection("points").updateOne(
-      { name },
+      { name, runId }, // Use name and runId as the unique identifier
       {
         $push: { points: point }, // Push new point object into the points array
         $set: { lastUpdate: new Date() }, // Update lastUpdate field
@@ -207,7 +215,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     io.emit("logging", emitPayload);
 
     // Respond with success
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, runId: runId }); // Include runId in the response
   } catch (error) {
     // Log any errors that occur during the batch process
     logger.error("✗ Error in /batch endpoint", {
@@ -226,6 +234,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     next(error); // Pass error to next middleware
   }
 });
+
 app.post("/query", async (req, res, next) => {
   try {
     const { error } = querySchema.validate(req.body);
@@ -235,52 +244,70 @@ app.post("/query", async (req, res, next) => {
     logger.info("Searching for:", query_name);
     const client = await getMongoClient();
     const db = client.db("training");
-    const result = await db.collection("points").findOne({ name: query_name });
+
+    // Find the most recent document with the matching name
+    const mostRecentResult = await db
+      .collection("points")
+      .find({ name: query_name })
+      .sort({ lastUpdate: -1 }) // Sort by lastUpdate descending
+      .limit(1)
+      .toArray();
+
+    console.log("Most Recent Result from MongoDB:", mostRecentResult);
+
+    if (mostRecentResult.length === 0) {
+      logger.info(`✓ Query successful: ${query_name} - not found`);
+      return res.status(200).json(null); // Or an empty object, depending on your needs
+    }
+
+    const runId = mostRecentResult[0].runId;
+
+    if (!runId) {
+      logger.warn(`✗ runId is undefined for ${query_name}, skipping`);
+      return res.status(200).json(null); // Skip if runId is undefined
+    }
+
+    logger.info(`✓ Retrieved runId: ${runId} for ${query_name}`);
+
+    // Find all batches with the specific runId
+    const results = await db
+      .collection("points")
+      .find({ name: query_name, runId: runId })
+      .sort({ "points.timestamp": 1 }) // Sort by timestamp ascending
+      .toArray();
+
+    console.log("Batches with runId from MongoDB:", results);
 
     logger.info(
-      `✓ Query successful: ${query_name} - ${result ? "found" : "not found"}`,
+      `✓ Query successful: ${query_name} - ${results.length > 0 ? "found" : "not found"
+      } batches for runId ${runId}`,
     );
 
-    if (result) {
+    if (results.length > 0) {
+      const allPoints = results[0].points;
+      const xCoordinates = allPoints.map((point) => point.x).flat();
+      const yCoordinates = allPoints.map((point) => point.y).flat();
+
       const emitPayload = {
-        name: result.name,
-        xCoordinates: result.points.flatMap((point) => point.x),
-        yCoordinates: result.points.flatMap((point) => point.y),
+        name: results[0].name,
+        xCoordinates: xCoordinates,
+        yCoordinates: yCoordinates,
       };
 
       io.emit("logging", emitPayload);
+      res.status(200).json({
+        name: results[0].name,
+        xCoordinates: xCoordinates,
+        yCoordinates: yCoordinates,
+        runId: runId, // Include the runId in the response
+        points: allPoints,
+      }); // Return all batches
+    } else {
+      res.status(200).json(null); // Or an empty object, depending on your needs
     }
-
-    res.status(200).json(result);
   } catch (error) {
     console.log(error);
     next(error);
   }
 });
 
-io.on("connection", (socket) => {
-  logger.info(`✓ Socket connected: ${socket.id}`);
-
-  socket.on("disconnect", () => {
-    logger.info(`○ Socket disconnected: ${socket.id}`);
-  });
-});
-
-httpServer.listen(HTTP_PORT, () => {
-  logger.info(`✓ HTTP & Socket.IO server running on port: ${HTTP_PORT}`);
-});
-
-process.on("SIGINT", async () => {
-  console.log("Gracefully shutting down...");
-  try {
-    if (mongoClient) await mongoClient.close();
-    io.close();
-    httpServer.close(() => {
-      console.log("Server shut down");
-      process.exit(0);
-    });
-  } catch (err) {
-    logger.error("Error during shutdown", err);
-    process.exit(1);
-  }
-});
