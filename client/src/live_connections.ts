@@ -1,43 +1,54 @@
+import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-// TODO: define TS types
-export function handle_socket_connection(live_connection_callback) {
-  let name: string;
-  let data: { name: [] } | {} = {};
-  let name_s: string[] = [];
 
-  console.log(import.meta.env.VITE_SOCKET_HOST)
-  const socket = io(import.meta.env.VITE_SOCKET_HOST, {
-    transports: ["websocket"],
-    path: "/api/socket/",
-  });
-  console.log("new socket testing")
-  console.log(socket);
+export function useSocket() {
+  const [data, setData] = useState({});
+  const nameSet = useRef(new Set());
+  const socketRef = useRef(null);
 
-  socket.on("logging", (socket: any) => {
-    name = socket.name;
-    if (name_s.length === 0) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (name_s.includes(socket.name) === false) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (socket.xCoordinates.length === undefined) {
-      data[name].push({
-        name: Date.now(),
-        value: [socket.xCoordinates, socket.yCoordinates],
-      });
-    } else {
-      console.log(data[name]);
-      for (let i = 0; i < socket.xCoordinates.length; i++) {
-	console.log(socket.xCoordinates[i])
-        data[name].push({
-          name: Date.now(),
-          value: [socket.xCoordinates[i], socket.yCoordinates[i]],
-        });
+  useEffect(() => {
+    const socketHost = import.meta.env.VITE_SOCKET_HOST;
+    socketRef.current = io(socketHost, {
+      transports: ["websocket"],
+      path: "/api/socket/",
+    });
+
+    socketRef.current.on("logging", (socketData) => {
+      const { name, xCoordinates, yCoordinates } = socketData;
+
+      if (!nameSet.current.has(name)) {
+        nameSet.current.add(name);
+        setData((prevData) => ({
+          ...prevData,
+          [name]: [],
+        }));
       }
-    }
-    live_connection_callback({ data, name: name, name_s });
-  });
+
+      const coordinates = Array.isArray(xCoordinates) ? xCoordinates : [xCoordinates];
+      const yCoords = Array.isArray(yCoordinates) ? yCoordinates : [yCoordinates];
+
+      // Update the data for the given name
+      setData((prevData) => {
+        const updatedData = { ...prevData };
+        for (let i = 0; i < coordinates.length; i++) {
+          if (!updatedData[name]) {
+            updatedData[name] = [];
+          }
+          updatedData[name].push({
+            name: Date.now(),
+            value: [coordinates[i], yCoords[i]],
+          });
+        }
+        return updatedData;
+      });
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
+
+  return { data, name_s: Array.from(nameSet.current) };
 }
+

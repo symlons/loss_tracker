@@ -17,6 +17,7 @@ if (!process.env.MONGODB_URI) {
 
 const HTTP_PORT = process.env.PORT || 5005;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
+console.log(MONGODB_URI);
 
 const app = express();
 app.set("trust proxy", 1);
@@ -29,13 +30,11 @@ const io = new Server(httpServer, {
 
 let mongoClient;
 async function getMongoClient() {
-  // Check if the client exists and if it's connected using MongoDB v4+ driver
   if (!mongoClient || !mongoClient.topology.isConnected()) {
     mongoClient = new MongoClient(MONGODB_URI, { useUnifiedTopology: true });
     await mongoClient.connect();
   }
 
-  // Check the connection state
   const connected = mongoClient.topology.isConnected();
   if (!connected) {
     logger.warn("MongoDB connection is not active");
@@ -63,7 +62,7 @@ const logger = winston.createLogger({
 app.use(helmet());
 app.use(express.json({ limit: "10mb" }));
 
-// Rate Limiting Configurations
+// Batch Limiter
 const batchLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10000,
@@ -76,9 +75,10 @@ const batchLimiter = rateLimit({
   },
 });
 
+// Rate Limiter
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000000, // Max number of requests
+  max: 1000000,
   message: "Too many requests, please try again later.",
   handler: (req, res, next) => {
     logger.warn(`Rate limit exceeded for ${req.ip} globally`);
@@ -107,6 +107,22 @@ app.use((req, res, next) => {
   next();
 });
 
+class CustomError extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+app.use((err, req, res, next) => {
+  if (err instanceof CustomError) {
+    res.status(err.statusCode).json({ error: err.message });
+  } else {
+    logger.error("✗ Error:", err.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // Joi Schemas for validation
 const batchSchema = Joi.object({
   name: Joi.string().required(),
@@ -119,11 +135,11 @@ const querySchema = Joi.object({
 });
 
 // In-memory batch counter per name
-let batchCounter = {};
+let batchCounter = {}; // TODO: how to reset this counter?
 
-// Batch Route to Handle Batches
 app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
+    // Validate request body
     const { error } = batchSchema.validate(req.body);
     if (error) {
       logger.error("✗ Batch request validation failed", {
@@ -149,43 +165,51 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
       ? yCoordinates
       : [];
 
+    // Ensure the point structure is correct with x and y inside it
     const point = {
-      x: validatedXCoordinates.map((x) => Number(x)),
-      y: validatedYCoordinates.map((y) => Number(y)),
-      timestamp: new Date(),
+      x: validatedXCoordinates.map((x) => Number(x)), // x coordinates as an array
+      y: validatedYCoordinates.map((y) => Number(y)), // y coordinates as an array
+      timestamp: new Date(), // Timestamp for when the point is created
     };
 
-    // MongoDB client and database operations
+    // Log the point to verify structure before updating the database
+    console.log("Point to be pushed:", point);
+
     const client = await getMongoClient();
     const db = client.db("training");
 
-    // Perform the MongoDB update operation
-    await db
-      .collection("points")
-      .updateOne(
-        { name },
-        { $push: { points: point }, $set: { lastUpdate: new Date() } },
-        { upsert: true },
-      );
+    // Update or insert document with upsert: true
+    await db.collection("points").updateOne(
+      { name },
+      {
+        $push: { points: point }, // Push new point object into the points array
+        $set: { lastUpdate: new Date() }, // Update lastUpdate field
+      },
+      { upsert: true }, // Insert document if it doesn't exist
+    );
 
-    // Increment the batch count for this name
+    // Update the batch counter for the name
     batchCounter[name] = (batchCounter[name] || 0) + 1;
+    console.log("Batch Counter:", batchCounter[name]);
 
-    // Log the batch count for debugging
+    // Log success
     logger.info(
       `${chalk.green("✓")} Batch processed for ${chalk.blue(name)}: ${chalk.yellow(batchCounter[name])} batch(es) received`,
     );
 
-    // Emit the data to the socket (without debounce to handle each batch)
+    // Emit the logging payload
     const emitPayload = {
       name,
       xCoordinates: validatedXCoordinates,
       yCoordinates: validatedYCoordinates,
     };
+
     io.emit("logging", emitPayload);
 
+    // Respond with success
     res.status(200).json({ success: true });
   } catch (error) {
+    // Log any errors that occur during the batch process
     logger.error("✗ Error in /batch endpoint", {
       error: error.message,
       stack: error.stack,
@@ -199,26 +223,33 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
           : typeof req.body.yCoordinates,
       },
     });
-    next(error); // Pass the error to the global error handler
+    next(error); // Pass error to next middleware
   }
 });
-
-// Query Route to Handle Queries
 app.post("/query", async (req, res, next) => {
   try {
     const { error } = querySchema.validate(req.body);
     if (error) throw new Error(error.details[0].message);
 
     const { query_name } = req.body;
-    console.log("Searching for:", query_name);
+    logger.info("Searching for:", query_name);
     const client = await getMongoClient();
-    console.log('Issue already here')
     const db = client.db("training");
     const result = await db.collection("points").findOne({ name: query_name });
 
     logger.info(
       `✓ Query successful: ${query_name} - ${result ? "found" : "not found"}`,
     );
+
+    if (result) {
+      const emitPayload = {
+        name: result.name,
+        xCoordinates: result.points.flatMap((point) => point.x),
+        yCoordinates: result.points.flatMap((point) => point.y),
+      };
+
+      io.emit("logging", emitPayload);
+    }
 
     res.status(200).json(result);
   } catch (error) {
@@ -227,24 +258,6 @@ app.post("/query", async (req, res, next) => {
   }
 });
 
-// Global Error Handler
-class CustomError extends Error {
-  constructor(statusCode, message) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
-
-app.use((err, req, res, next) => {
-  if (err instanceof CustomError) {
-    res.status(err.statusCode).json({ error: err.message });
-  } else {
-    logger.error("✗ Error:", err.message);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Socket.IO Setup
 io.on("connection", (socket) => {
   logger.info(`✓ Socket connected: ${socket.id}`);
 
@@ -253,12 +266,10 @@ io.on("connection", (socket) => {
   });
 });
 
-// Start the HTTP & WebSocket server
 httpServer.listen(HTTP_PORT, () => {
   logger.info(`✓ HTTP & Socket.IO server running on port: ${HTTP_PORT}`);
 });
 
-// Graceful Shutdown
 process.on("SIGINT", async () => {
   console.log("Gracefully shutting down...");
   try {

@@ -1,31 +1,47 @@
 import { set_option } from "./options";
 
-function calc_max(state: { name; data }, query: { status; value }) {
-  let value;
-  if (state.name === undefined || query.value !== "") {
-    if (state.data[query.value] !== undefined) {
-      value =
-        state.data[query.value][state.data[query.value].length - 1].value[0];
+interface State {
+  data: Record<string, { name: number; value: number[] }[]>; // Adjusted to match the data structure
+}
+
+interface Query {
+  status: boolean;
+  value: string;
+}
+
+export function update_data(state: State, query: Query) {
+  console.log("Query:", query);
+  console.log("State:", state);
+
+  const seriesOptions = Object.keys(state.data).map((name) => {
+    const new_data = state.data[name];
+    console.log(`Processing series for name: ${name}`, new_data); // Log the data for each series
+
+    // Ensure new_data is not empty
+    if (!new_data || new_data.length === 0) {
+      console.warn(`No data available for series: ${name}`);
+      return null; // Skip this series if there's no data
     }
-  }
-  return value;
+
+    const max = Math.max(...new_data.map(item => item.value[0])); // Example of calculating max
+
+    return set_option(max, name, new_data);
+  }).filter(option => option !== null); // Filter out any null options
+
+  console.log("Series options:", seriesOptions); // Log the series options being returned
+
+  return {
+    title: {
+      text: 'Live Data Chart',
+    },
+    tooltip: {},
+    xAxis: {
+      type: "value",
+    },
+    yAxis: {
+      type: "value",
+    },
+    series: seriesOptions,
+  };
 }
 
-export function update_data(state, query) {
-  let option, new_name, new_data;
-  let max = calc_max(state, query);
-
-  if (query.status === false) {
-    new_name = state.name;
-    new_data = state.data[new_name];
-    option = set_option(max, new_name, new_data);
-  } else if (query.status === true && query.value !== undefined) {
-    new_name = query.value;
-    new_data = state.data[query.value];
-    option = set_option(max, new_name, new_data);
-  } else {
-    console.log("query status set to true, but no data was provided");
-    return null;
-  }
-  return option;
-}
