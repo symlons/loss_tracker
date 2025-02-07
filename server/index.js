@@ -9,7 +9,7 @@ import winston from "winston";
 import chalk from "chalk";
 import pkg from "lodash";
 import dotenv from "dotenv";
-import crypto from 'crypto'; // Import crypto
+import crypto from "crypto"; // Import crypto
 
 const { debounce } = pkg;
 
@@ -245,69 +245,77 @@ app.post("/query", async (req, res, next) => {
     const client = await getMongoClient();
     const db = client.db("training");
 
-    // Find the most recent document with the matching name
-    const mostRecentResult = await db
+    // Find the document with the matching name and sort by lastUpdate descending
+    const result = await db
       .collection("points")
-      .find({ name: query_name })
-      .sort({ lastUpdate: -1 }) // Sort by lastUpdate descending
-      .limit(1)
-      .toArray();
+      .findOne(
+        { name: query_name },
+        { sort: { lastUpdate: -1 } }, // Sort by lastUpdate descending
+      );
 
-    console.log("Most Recent Result from MongoDB:", mostRecentResult);
+    console.log("Result from MongoDB:", result); // Log the entire result
 
-    if (mostRecentResult.length === 0) {
+    if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
-      return res.status(200).json(null); // Or an empty object, depending on your needs
+      return res.status(200).json(null); // Return null if no document is found
     }
 
-    const runId = mostRecentResult[0].runId;
+    const allPoints = result.points;
+    const xCoordinates = allPoints.map((point) => point.x).flat();
+    const yCoordinates = allPoints.map((point) => point.y).flat();
+    const runId = result.runId; // Get the runId from the top level
 
-    if (!runId) {
-      logger.warn(`✗ runId is undefined for ${query_name}, skipping`);
-      return res.status(200).json(null); // Skip if runId is undefined
-    }
+    console.log("runId:", runId); // Log the runId
 
-    logger.info(`✓ Retrieved runId: ${runId} for ${query_name}`);
+    logger.info(`✓ Retrieved runId: ${runId} for ${query_name}`); // Log the runId
 
-    // Find all batches with the specific runId
-    const results = await db
-      .collection("points")
-      .find({ name: query_name, runId: runId })
-      .sort({ "points.timestamp": 1 }) // Sort by timestamp ascending
-      .toArray();
+    const emitPayload = {
+      name: result.name,
+      xCoordinates: xCoordinates,
+      yCoordinates: yCoordinates,
+    };
 
-    console.log("Batches with runId from MongoDB:", results);
+    io.emit("logging", emitPayload);
 
-    logger.info(
-      `✓ Query successful: ${query_name} - ${results.length > 0 ? "found" : "not found"
-      } batches for runId ${runId}`,
-    );
+    const response = {
+      name: result.name,
+      xCoordinates: xCoordinates,
+      yCoordinates: yCoordinates,
+      runId: runId, // Include the runId in the response
+      points: allPoints,
+    };
 
-    if (results.length > 0) {
-      const allPoints = results[0].points;
-      const xCoordinates = allPoints.map((point) => point.x).flat();
-      const yCoordinates = allPoints.map((point) => point.y).flat();
-
-      const emitPayload = {
-        name: results[0].name,
-        xCoordinates: xCoordinates,
-        yCoordinates: yCoordinates,
-      };
-
-      io.emit("logging", emitPayload);
-      res.status(200).json({
-        name: results[0].name,
-        xCoordinates: xCoordinates,
-        yCoordinates: yCoordinates,
-        runId: runId, // Include the runId in the response
-        points: allPoints,
-      }); // Return all batches
-    } else {
-      res.status(200).json(null); // Or an empty object, depending on your needs
-    }
+    res.status(200).json([response]); // Return the single batch in an array
   } catch (error) {
     console.log(error);
     next(error);
+  }
+});
+
+io.on("connection", (socket) => {
+  logger.info(`✓ Socket connected: ${socket.id}`);
+
+  socket.on("disconnect", () => {
+    logger.info(`○ Socket disconnected: ${socket.id}`);
+  });
+});
+
+httpServer.listen(HTTP_PORT, () => {
+  logger.info(`✓ HTTP & Socket.IO server running on port: ${HTTP_PORT}`);
+});
+
+process.on("SIGINT", async () => {
+  console.log("Gracefully shutting down...");
+  try {
+    if (mongoClient) await mongoClient.close();
+    io.close();
+    httpServer.close(() => {
+      console.log("Server shut down");
+      process.exit(0);
+    });
+  } catch (err) {
+    logger.error("Error during shutdown", err);
+    process.exit(1);
   }
 });
 
