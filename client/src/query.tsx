@@ -45,6 +45,7 @@ export function Query({ state, setState, setQuery }: QueryProps) {
       if (response.ok) {
         const body = await response.json();
         // Handle the response...
+        console.log("Data received:", body); // Log the received data
       } else {
         console.error("Error fetching data:", response.status);
       }
@@ -53,7 +54,7 @@ export function Query({ state, setState, setQuery }: QueryProps) {
     } finally {
       myChart.hideLoading();
     }
-  }, [state, setState, setQuery]);
+  }, [state]);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -65,6 +66,7 @@ export function Query({ state, setState, setQuery }: QueryProps) {
         type="text"
         placeholder="query_name"
       />
+      <button type="submit" className="btn-submit">Submit</button>
     </form>
   );
 }

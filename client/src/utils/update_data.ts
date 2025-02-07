@@ -1,7 +1,7 @@
 import { set_option } from "./options";
 
 interface State {
-  data: Record<string, { name: number; value: number[] }[]>; // Adjusted to match the data structure
+  data: Record<string, { name: number; value: number[]; runId: string }[]>; // Adjusted to match the data structure
 }
 
 interface Query {
@@ -15,26 +15,42 @@ export function update_data(state: State, query: Query) {
 
   const seriesOptions = Object.keys(state.data).map((name) => {
     const new_data = state.data[name];
-    console.log(`Processing series for name: ${name}`, new_data); // Log the data for each series
 
-    // Ensure new_data is not empty
-    if (!new_data || new_data.length === 0) {
-      console.warn(`No data available for series: ${name}`);
-      return null; // Skip this series if there's no data
-    }
+    // Log the data for each series
+    console.log(`Data for series "${name}":`, new_data);
 
-    const max = Math.max(...new_data.map(item => item.value[0])); // Example of calculating max
+    // Filter out incomplete data points
+    const filteredData = new_data.filter(item => item.value.length === 2); // Ensure each item has both x and y values
 
-    return set_option(max, name, new_data);
+    // Log filtered data
+    console.log(`Filtered data for series "${name}":`, filteredData);
+
+    // Calculate max for the x-axis
+    const max = filteredData.length > 0 ? Math.max(...filteredData.map(item => item.value[0])) : 0; // Example of calculating max
+
+    // Call set_option with the filtered data and the corresponding color
+    const option = set_option(max, name, filteredData); // Pass the filtered data
+
+    // Log the option before returning
+    console.log(`Option for series "${name}":`, option);
+
+    // Return the option only if it's not null
+    return option !== null ? option : null;
   }).filter(option => option !== null); // Filter out any null options
 
-  console.log("Series options:", seriesOptions); // Log the series options being returned
+  // Log the final series options
+  console.log("Final seriesOptions:", seriesOptions);
 
   return {
     title: {
       text: 'Live Data Chart',
     },
-    tooltip: {},
+    tooltip: {
+      trigger: "axis",
+      axisPointer: {
+        type: "shadow"
+      }
+    },
     xAxis: {
       type: "value",
     },
@@ -44,4 +60,3 @@ export function update_data(state: State, query: Query) {
     series: seriesOptions,
   };
 }
-

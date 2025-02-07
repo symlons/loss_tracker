@@ -1,3 +1,4 @@
+// options.ts
 export const option = {
   title: {
     left: "center",
@@ -29,9 +30,10 @@ export const option = {
 };
 
 export function set_option(new_max: number | undefined, new_name: string, new_data: { name: number; value: number[] }[]) {
+  // Check if new_data is valid
   if (!new_data || new_data.length === 0) {
-    console.error(`No data available for series: ${new_name}`);
-    return null;
+    console.error(`No data available for series: ${new_name}`); // Log if no data is available
+    return null; // Return null or an empty object if there's no data
   }
 
   return {
@@ -39,6 +41,10 @@ export function set_option(new_max: number | undefined, new_name: string, new_da
     type: "line",
     showSymbol: false,
     data: new_data.map(item => item.value),
+    animation: false,
+    emphasis: {
+      focus: "series",
+    },
   };
 }
 
