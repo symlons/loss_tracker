@@ -44,8 +44,7 @@ export function Query({ state, setState, setQuery }: QueryProps) {
 
       if (response.ok) {
         const body = await response.json();
-        // Handle the response...
-        console.log("Data received:", body); // Log the received data
+        console.log("Data received:", body);
       } else {
         console.error("Error fetching data:", response.status);
       }

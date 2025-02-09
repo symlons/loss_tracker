@@ -18,7 +18,8 @@ if (!process.env.MONGODB_URI) {
 }
 
 const HTTP_PORT = process.env.PORT || 5005;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
+// const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
+const MONGODB_URI = "mongodb://localhost:27017"
 console.log(MONGODB_URI);
 
 const app = express();
@@ -138,25 +139,14 @@ const querySchema = Joi.object({
 });
 
 // In-memory batch counter per name
-let batchCounter = {}; // TODO: how to reset this counter?
+let batchCounter = {};
 
 app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
-    // Validate request body
+    // Validate request body (as before)
     const { error } = batchSchema.validate(req.body);
     if (error) {
-      logger.error("✗ Batch request validation failed", {
-        error: error.details,
-        body: {
-          name: req.body.name,
-          xCoordinatesExists: req.body.xCoordinates
-            ? true
-            : typeof req.body.xCoordinates,
-          yCoordinatesExists: req.body.yCoordinates
-            ? true
-            : typeof req.body.yCoordinates,
-        },
-      });
+      // ... (error logging and handling as before)
       throw new Error(`Validation Error`);
     }
 
@@ -181,7 +171,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     };
 
     // Log the point to verify structure before updating the database
-    console.log("Point to be pushed:", point);
+    console.log("Point to be pushed:", point.x.length);
 
     const client = await getMongoClient();
     const db = client.db("training");
@@ -196,13 +186,14 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
       { upsert: true }, // Insert document if it doesn't exist
     );
 
-    // Update the batch counter for the name
-    batchCounter[name] = (batchCounter[name] || 0) + 1;
-    console.log("Batch Counter:", batchCounter[name]);
+    // Update the batch counter for the name and runId
+    const counterKey = `${name}-${runId}`; // Create a unique key for each name and runId
+    batchCounter[counterKey] = (batchCounter[counterKey] || 0) + 1;
+    console.log("Batch Counter:", batchCounter[counterKey]);
 
     // Log success
     logger.info(
-      `${chalk.green("✓")} Batch processed for ${chalk.blue(name)}: ${chalk.yellow(batchCounter[name])} batch(es) received`,
+      `${chalk.green("✓")} Batch processed for ${chalk.blue(name)} (Run ID: ${chalk.yellow(runId)}): ${chalk.yellow(batchCounter[counterKey])} batch(es) received`,
     );
 
     // Emit the logging payload
@@ -241,38 +232,44 @@ app.post("/query", async (req, res, next) => {
     if (error) throw new Error(error.details[0].message);
 
     const { query_name } = req.body;
-    logger.info("Searching for:", query_name);
+    logger.info("Searching for:", query_name, " - Most Recent Run");
     const client = await getMongoClient();
     const db = client.db("training");
 
     // Find the document with the matching name and sort by lastUpdate descending
-    const result = await db
-      .collection("points")
-      .findOne(
-        { name: query_name },
-        { sort: { lastUpdate: -1 } }, // Sort by lastUpdate descending
-      );
-
-    console.log("Result from MongoDB:", result); // Log the entire result
+    const result = await db.collection("points").findOne(
+      { name: query_name },
+      { sort: { lastUpdate: -1 } },
+    );
 
     if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
-      return res.status(200).json(null); // Return null if no document is found
+      return res.status(200).json(null);
     }
 
     const allPoints = result.points;
     const xCoordinates = allPoints.map((point) => point.x).flat();
     const yCoordinates = allPoints.map((point) => point.y).flat();
-    const runId = result.runId; // Get the runId from the top level
+    const runId = result.runId;
 
-    console.log("runId:", runId); // Log the runId
+    logger.info(`✓ Retrieved runId: ${runId} for ${query_name}`);
 
-    logger.info(`✓ Retrieved runId: ${runId} for ${query_name}`); // Log the runId
+    const counterKey = `${query_name}-${runId}`;
+    const batchCount = batchCounter[counterKey] || 0;
+
+    // Calculate total points across all batches for this runId
+    let totalPoints = 0;
+    for (const point of allPoints) {
+      totalPoints += point.x.length; // Assuming x and y have the same length
+    }
 
     const emitPayload = {
       name: result.name,
       xCoordinates: xCoordinates,
       yCoordinates: yCoordinates,
+      batchCount: batchCount,
+      totalPoints: totalPoints, // Include total points in the emit payload
+      runId: runId,
     };
 
     io.emit("logging", emitPayload);
@@ -281,8 +278,10 @@ app.post("/query", async (req, res, next) => {
       name: result.name,
       xCoordinates: xCoordinates,
       yCoordinates: yCoordinates,
-      runId: runId, // Include the runId in the response
+      runId: runId,
       points: allPoints,
+      batchCount: batchCount,
+      totalPoints: totalPoints, // Include total points in the response
     };
 
     res.status(200).json([response]); // Return the single batch in an array

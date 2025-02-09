@@ -15,18 +15,16 @@ class Config:
       "minikube": "http://127.0.0.1/api/batch",
       "prod": "http://mlstatstracker.org/api/batch",
     }
-    self.api_host = self.default_hosts.get(os.getenv("API_HOST", "minikube"), None)
-    print(self.api_host)
+    self.api_host = self.default_hosts.get(os.getenv("API_HOST", "dev"))
     if self.api_host is None:
       raise ValueError(f"Invalid API_HOST. Choose from {', '.join(self.default_hosts.keys())}.")
+    print(f"Using API host: {self.api_host}")  # More informative print statement
 
 
 async def simulate_ml_training():
   config = MetricConfig(
     name="advanced_ml_experiment",
     endpoint=Config().api_host,
-    max_buffer_size=100000,
-    batch_size=100,
     retry_attempts=5,
     retry_delay=0.5,
     enable_compression=True,
@@ -51,8 +49,8 @@ async def simulate_ml_training():
   except Exception as e:
     print(f"Training interrupted: {e}")
   finally:
-    print("training already finished ------------------------------")
-    await logger.stop()  # ensures all metrics are sent
+    print("Training finished. Sending remaining metrics...")
+    await logger.stop()
 
     print("\nTraining Metrics Summary:")
     stats = logger.get_stats()

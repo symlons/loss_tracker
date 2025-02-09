@@ -14,7 +14,10 @@ export function useSocket() {
     });
 
     socketRef.current.on("logging", (socketData) => {
-      const { name, xCoordinates, yCoordinates } = socketData;
+      const { name, totalPoints, runId, xCoordinates, yCoordinates } = socketData;
+      console.log(name)
+      console.log(totalPoints)
+      console.log(runId)
 
       if (!nameSet.current.has(name)) {
         nameSet.current.add(name);
@@ -26,6 +29,12 @@ export function useSocket() {
 
       const coordinates = Array.isArray(xCoordinates) ? xCoordinates : [xCoordinates];
       const yCoords = Array.isArray(yCoordinates) ? yCoordinates : [yCoordinates];
+
+	if (xCoordinates.length == totalPoints) {
+		console.log("9999999999999999999999999999999")
+	      updatedData[name] = [];
+	      setData((state) => updatedData[name] = [])
+	 }
 
       // Update the data for the given name
       setData((prevData) => {
@@ -43,7 +52,6 @@ export function useSocket() {
       });
     });
 
-    // Cleanup on unmount
     return () => {
       socketRef.current.disconnect();
     };
@@ -51,4 +59,3 @@ export function useSocket() {
 
   return { data, name_s: Array.from(nameSet.current) };
 }
-

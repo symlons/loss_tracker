@@ -58,13 +58,13 @@ function App() {
           yAxis: {
             type: "value",
           },
-          series: [], // Clear existing series
+          series: [],
         });
         chartRef.current.setOption(updatedOption);
         chartRef.current.hideLoading();
       }
     }
-  }, [data, query]); // Ensure that this effect only runs when data or query changes
+  }, [data, query]);
 
   return (
     <div
