@@ -4,6 +4,7 @@ import time
 import json
 import gzip
 import random
+import uuid
 from typing import Dict, Any, Optional, Deque, List
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -19,8 +20,9 @@ class MetricConfig:
 
 
 class MetricLogger:
-  def __init__(self, config: MetricConfig):
+  def __init__(self, config: MetricConfig, run_id: str):
     self.config = config
+    self.run_id = run_id
     self._buffers: Dict[str, Deque[Dict[str, Any]]] = defaultdict(deque)
     self._stop_event = asyncio.Event()
     self._buffer_lock = asyncio.Lock()
@@ -44,6 +46,7 @@ class MetricLogger:
         "step": float(step),
         "value": float(value),
         "timestamp": time.monotonic(),
+        "runId": self.run_id,
       }
       async with self._buffer_lock:
         self._buffers[metric_name].append(metric)
@@ -64,6 +67,7 @@ class MetricLogger:
         grouped = {
           "xCoordinates": [m["step"] for m in batch],
           "yCoordinates": [m["value"] for m in batch],
+          "runId": self.run_id,
         }
 
         try:
@@ -90,6 +94,7 @@ class MetricLogger:
       "name": name,
       "xCoordinates": [float(x) for x in data["xCoordinates"]],
       "yCoordinates": [float(y) for y in data["yCoordinates"]],
+      "runId": self.run_id,
     }
 
     headers = {"Content-Type": "application/json"}
@@ -133,6 +138,7 @@ class MetricLogger:
           grouped = {
             "xCoordinates": [m["step"] for m in batch],
             "yCoordinates": [m["value"] for m in batch],
+            "runId": self.run_id,
           }
           try:
             await self._send_batch(session, name, grouped)
@@ -148,12 +154,14 @@ class MetricLogger:
     return {**self.metrics, "buffer_size": total_pending}
 
 
-async def simulate_training() -> None:
+async def simulate_ml_training() -> None:
   config = MetricConfig(
     name="model_training",
     endpoint="http://localhost:5005/batch",
   )
-  logger = MetricLogger(config)
+
+  run_id = str(uuid.uuid4())
+  logger = MetricLogger(config, run_id=run_id)
 
   try:
     num_epochs = 10
@@ -165,7 +173,7 @@ async def simulate_training() -> None:
         await logger.log(global_step, loss, "loss")
 
         if step % 200 == 0:
-          await asyncio.sleep(0.011)  # Simulate some processing time
+          await asyncio.sleep(0.011)
     print("DONE")
   finally:
     await logger.stop()
@@ -173,4 +181,4 @@ async def simulate_training() -> None:
 
 
 if __name__ == "__main__":
-  asyncio.run(simulate_training())
+  asyncio.run(simulate_ml_training())

@@ -1,6 +1,7 @@
 import asyncio
 import random
 import numpy as np
+import uuid
 from metric_logger import MetricLogger, MetricConfig
 
 from dotenv import load_dotenv
@@ -18,7 +19,7 @@ class Config:
     self.api_host = self.default_hosts.get(os.getenv("API_HOST", "dev"))
     if self.api_host is None:
       raise ValueError(f"Invalid API_HOST. Choose from {', '.join(self.default_hosts.keys())}.")
-    print(f"Using API host: {self.api_host}")  # More informative print statement
+    print(f"Using API host: {self.api_host}")
 
 
 async def simulate_ml_training():
@@ -29,7 +30,9 @@ async def simulate_ml_training():
     retry_delay=0.5,
     enable_compression=True,
   )
-  logger = MetricLogger(config)
+
+  run_id = str(uuid.uuid4())
+  logger = MetricLogger(config, run_id=run_id)
 
   try:
     num_epochs = 5000
