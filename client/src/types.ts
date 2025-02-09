@@ -1,4 +1,3 @@
-// types.ts
 export interface SocketData {
   name: string;
   totalPoints: number;
@@ -17,4 +16,3 @@ export interface State {
   data: { [key: string]: Point[] };
   name_s: string[];
 }
-

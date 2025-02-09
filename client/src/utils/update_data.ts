@@ -19,4 +19,3 @@ export function update_data(state: State) {
     series: seriesOptions,
   };
 }
-
