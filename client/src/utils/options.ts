@@ -1,4 +1,3 @@
-// options.ts
 import * as echarts from "echarts";
 
 export const option = {
@@ -41,14 +40,11 @@ export function set_option(
     return null;
   }
 
-  console.log("----------------------------------------------------");
   const values = new_data.map(item => item.value[0]);
   const nums = values.filter(v => typeof v === "number" && !isNaN(v));
   const minVal = nums.length ? Math.min(...nums) : undefined;
   const maxVal = nums.length ? Math.max(...nums) : undefined;
-  console.log("Min:", minVal, "Max:", maxVal);
 
-  // Process the data: ensure each data point is an [x, y] pair.
   const data = new_data.map(item => item.value.slice(0, 2));
   const seriesOption: echarts.EChartOption.SeriesLine = {
     name: new_name,
@@ -70,4 +66,3 @@ export const default_loading = {
   spinnerRadius: 20,
   maskColor: "rgba(255, 255, 255, 0.4)",
 };
-

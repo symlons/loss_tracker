@@ -17,19 +17,24 @@ function App() {
   });
 
   useEffect(() => {
-    setState((prev) => ({
-      ...prev,
-      data: socketData,
-      name_s: name_s,
-    }));
+    // Only update state if socketData or name_s actually changes
+    setState(prev => {
+      if (JSON.stringify(prev.data) !== JSON.stringify(socketData) || 
+          JSON.stringify(prev.name_s) !== JSON.stringify(name_s)) {
+        return {
+          ...prev,
+          data: socketData,
+          name_s: name_s,
+        };
+      }
+      return prev;
+    });
   }, [socketData, name_s]);
 
-  const [query, setQuery] = useState<{ status: boolean; value: string | null }>(
-    {
-      status: false,
-      value: null,
-    },
-  );
+  const [query, setQuery] = useState<{ status: boolean; value: string | null }>({
+    status: false,
+    value: null,
+  });
 
   const chartRef = useRef<echarts.ECharts | null>(null);
 
@@ -50,12 +55,16 @@ function App() {
   useEffect(() => {
     if (chartRef.current) {
       const updatedOption = update_data(state);
-      console.log("Updated Option:", updatedOption);
-      chartRef.current.setOption(updatedOption, {
-        notMerge: false,
-        lazyUpdate: true,
-      });
-      chartRef.current.hideLoading();
+      const currentOption = chartRef.current.getOption(); // Get current chart options
+
+      // Only update chart if the options have changed
+      if (JSON.stringify(updatedOption) !== JSON.stringify(currentOption)) {
+        chartRef.current.setOption(updatedOption, {
+          notMerge: false,
+          lazyUpdate: true,
+        });
+        chartRef.current.hideLoading();
+      }
     }
   }, [state]);
 
@@ -78,3 +87,4 @@ function App() {
 }
 
 export default App;
+
