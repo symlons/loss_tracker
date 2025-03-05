@@ -5,10 +5,10 @@
   "type": "module",
   "dependencies": {
     "@hapi/joi": "^17.1.1",
+    "@tailwindcss/vite": "^4.0.10",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/user-event": "^14.5.2",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
-    "autoprefixer": "^10.4.20",
     "body-parser": "^1.20.3",
     "core-js": "^3.39.0",
     "core-util-is": "^1.0.3",
@@ -18,12 +18,12 @@
     "express": "^4.21.1",
     "mongodb": "^6.10.0",
     "mongoose": "^8.8.0",
-    "postcss": "^8.4.47",
     "postcss-import": "^16.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "tailwindcss": "^4.0.10",
     "uuid": "^11.0.2",
     "web-vitals": "^4.2.4"
   },
@@ -76,7 +76,6 @@
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",
     "react-devtools": "^6.1.1",
-    "tailwindcss": "^4.0.5",
     "typescript": "^5.7.3",
     "vite": "^6.1.0"
   }
