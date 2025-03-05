@@ -24,7 +24,7 @@ class Config:
 
 async def simulate_ml_training():
   config = MetricConfig(
-    name="advanced_ml_experiment",
+    name="test",
     endpoint=Config().api_host,
     retry_attempts=5,
     retry_delay=0.5,
@@ -37,7 +37,7 @@ async def simulate_ml_training():
   try:
     num_epochs = 5000
     for epoch in range(num_epochs):
-      loss = np.random.exponential(scale=0.1)
+      loss = np.random.normal(scale=0.1)
       accuracy = min(1.0, max(0.0, random.gauss(0.9, 0.05)))
       learning_rate = 0.001 * (0.95**epoch)
 

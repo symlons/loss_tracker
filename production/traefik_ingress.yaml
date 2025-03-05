@@ -1,9 +1,8 @@
----
 # Middleware to rewrite /api paths
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
 metadata:
-  name: rewrite-api
+  name: rewriteapi
   namespace: losstracker
 spec:
   replacePathRegex:
@@ -39,7 +38,7 @@ metadata:
   name: api-backend-ingress
   namespace: losstracker
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: losstracker-rewrite-api@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: losstracker/rewriteapi
 spec:
   ingressClassName: traefik
   rules:

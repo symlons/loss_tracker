@@ -52,7 +52,7 @@ jobs:
           context: ./server
           push: true
           tags: symlon/loss-tracker:server
-          platforms: linux/arm64
+          platforms: linux/amd64
           build-args: |
             NODE_ENV=production
             BUILDKIT_STEP_LOG_MAX_SIZE=10485760
@@ -77,7 +77,7 @@ jobs:
           context: ./client
           push: true
           tags: symlon/loss-tracker:client
-          platforms: linux/arm64
+          platforms: linux/amd64
           build-args: |
             NODE_ENV=production
             BUILDKIT_STEP_LOG_MAX_SIZE=10485760
