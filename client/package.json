@@ -9,6 +9,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/user-event": "^14.5.2",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "amqplib": "^0.10.5",
     "body-parser": "^1.20.3",
     "core-js": "^3.39.0",
     "core-util-is": "^1.0.3",
@@ -23,6 +24,7 @@
     "react-dom": "^19.0.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "tailwind": "^4.0.0",
     "tailwindcss": "^4.0.10",
     "uuid": "^11.0.2",
     "web-vitals": "^4.2.4"
