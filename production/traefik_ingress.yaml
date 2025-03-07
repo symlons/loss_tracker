@@ -1,5 +1,27 @@
+# Traefik LoadBalancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: losstracker  # Change this if Traefik is in a different namespace
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: traefik # Ensure this selector matches the label of your Traefik pods
+  type: LoadBalancer  # Expose Traefik externally as a LoadBalancer
+
+---
+
 # Middleware to rewrite /api paths
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: rewriteapi
@@ -10,6 +32,7 @@ spec:
     replacement: "/$1"
 
 ---
+
 # Ingress for /api/socket
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -31,6 +54,7 @@ spec:
                   number: 5005
 
 ---
+
 # Ingress for /api with middleware to rewrite paths
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -38,7 +62,7 @@ metadata:
   name: api-backend-ingress
   namespace: losstracker
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: losstracker/rewriteapi
+    traefik.ingress.kubernetes.io/router.middlewares: losstracker/rewriteapi@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
@@ -54,12 +78,14 @@ spec:
                   number: 5005
 
 ---
-# Ingress for frontend (root path)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: frontend-ingress
   namespace: losstracker
+  # annotations:
+  #     traefik.ingress.kubernetes.io/router.middlewares: losstracker/rewriteapi@kubernetescrd
+
 spec:
   ingressClassName: traefik
   rules:

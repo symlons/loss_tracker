@@ -1,0 +1,133 @@
+---
+# Traefik ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-config
+  namespace: losstracker
+data:
+  traefik.yaml: |
+    api:
+      insecure: true  # Enables dashboard access on /dashboard (for debugging)
+    entryPoints:
+      web:
+        address: ":80"
+      websecure:
+        address: ":443"
+    providers:
+      kubernetesCRD:
+        ingressClass: traefik
+      kubernetesIngress: {}  # Ensure Ingress objects are picked up
+    log:
+      level: DEBUG  # Useful for debugging
+---
+# Loss Tracker NGINX Client Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loss-tracker-nginx-client
+  namespace: losstracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loss-tracker-nginx-client
+  template:
+    metadata:
+      labels:
+        app: loss-tracker-nginx-client
+    spec:
+      containers:
+        - name: loss-tracker-nginx-client
+          image: nginx:alpine  # Replace with your image if needed
+          ports:
+            - containerPort: 80
+---
+# Loss Tracker NGINX Client Service (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: loss-tracker-nginx-client
+  namespace: losstracker
+spec:
+  selector:
+    app: loss-tracker-nginx-client
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+# Ingress for the NGINX Client (simple-ingress)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: simple-ingress
+  namespace: losstracker
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mlstatstracker.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: loss-tracker-nginx-client
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: losstracker
+spec:
+  selector:
+    app.kubernetes.io/name: traefik
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
+  type: LoadBalancer  # or NodePort if you're not using a cloud provider
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: losstracker
+  labels:
+    app.kubernetes.io/name: traefik
+spec:
+  replicas: 1  # You can scale as needed
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: traefik
+    spec:
+      containers:
+        - name: traefik
+          image: traefik:v2.9
+          args:
+            - "--api.dashboard=true"
+            - "--entrypoints.web.address=:80"
+            - "--entrypoints.websecure.address=:443"
+            - "--providers.kubernetescrd"
+            - "--providers.kubernetesingress"
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
