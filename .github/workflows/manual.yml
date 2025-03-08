@@ -2,7 +2,7 @@ name: loss-tracker-ci
 on:
   push:
     branches:
-      - redo
+      - master
 jobs:
   build:
     runs-on: ubuntu-latest

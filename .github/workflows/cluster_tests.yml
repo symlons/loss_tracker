@@ -3,9 +3,9 @@ name: Cluster Testing
 
 on:
   push:
-    branches: [redo]
+    branches: [master]
   pull_request:
-    branches: [redo]
+    branches: [master]
 
 jobs:
   test:
