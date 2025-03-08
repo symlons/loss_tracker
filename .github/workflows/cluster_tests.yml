@@ -1,11 +1,11 @@
 name: Cluster Testing
-# This is for deployment testing
+# This is for deployment testing with kind
 
 on:
   push:
-    branches: [master, redo]
+    branches: [redo]
   pull_request:
-    branches: [master, redo]
+    branches: [redo]
 
 jobs:
   test:
