@@ -84,7 +84,7 @@ jobs:
             
             # Send HTTP request to /api path and capture HTTP status code
             echo "Sending HTTP request to http://$MINIKUBE_IP:8080/api"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$MINIKUBE_IP:8080/api)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP:80/api)
             
             echo "HTTP status code received for /api: $HTTP_CODE"
             
