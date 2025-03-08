@@ -114,9 +114,6 @@ jobs:
           echo "Describing all pods for detailed status..."
           kubectl describe pods -n losstracker
 
-          echo "Fetching logs for all pods in losstracker namespace..."
-          kubectl logs -n losstracker --all-containers=true --tail=50
-
             - name: Test Client Ingress connectivity
               run: |
                 echo "Port-forwarding client service to localhost:8080"
