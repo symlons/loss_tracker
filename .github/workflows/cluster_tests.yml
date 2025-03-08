@@ -29,7 +29,17 @@ jobs:
           kind get clusters && kind delete cluster --name kind || echo "No existing Kind cluster found"
 
       - name: Create Kind cluster
-        run: kind create cluster
+        run: |
+          kind create cluster
+          sleep 5  # Adding a delay to ensure cluster is fully initialized
+
+      - name: Set up kubectl for Kind cluster
+        run: |
+          export KUBEVERSION=$(kind version --client)
+          echo "Kube version: $KUBEVERSION"
+          kind get kubeconfig > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl cluster-info  # Verify the cluster is up and running
 
       - name: Validate YAML manifests with kubeval (skip unknown schemas)
         run: |
@@ -80,8 +90,6 @@ jobs:
             PF_API_PID=$!
             sleep 10
             echo "Checking API endpoint response..."
-
-            # Adjust endpoint path as necessary; here we're testing /api endpoint
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
             echo "HTTP status code: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
@@ -95,33 +103,18 @@ jobs:
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
 
-      - name: Test Traefik ingress routing for /api path
+      - name: Test Traefik routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-
-            # Get the Kind cluster API server URL correctly
-            KIND_API_SERVER=$(kubectl cluster-info | grep 'Kubernetes master' | awk -F':// ' '{print $2}' | sed 's/\/$//')
-
-            if [ -z "$KIND_API_SERVER" ]; then
-              echo "ERROR: Could not retrieve Kind cluster API server URL."
-              exit 1
-            fi
-
-            echo "Kind cluster API server: $KIND_API_SERVER"
-
-            # Attempting to connect to the API with the correct URL and host header
-            echo "Attempting to connect to http://$KIND_API_SERVER/api with Host header 'mlstatstracker.org'"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$KIND_API_SERVER/api)
-
+            MINIKUBE_IP=$(kind get clusters | head -n 1 | xargs -I {} kind get kubeconfig --name {} --internal | grep 'server' | sed 's/^.*http/http/')
+            echo "Kind cluster API server: $MINIKUBE_IP"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
             echo "HTTP status code received for /api: $HTTP_CODE"
-
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
-              echo "Verbose curl output:"
-              curl -v -H "Host: mlstatstracker.org" http://$KIND_API_SERVER/api
               exit 1
             fi
             echo "Traefik routing for /api path passed successfully with HTTP status 200"
