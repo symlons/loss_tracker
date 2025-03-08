@@ -41,9 +41,8 @@ jobs:
 
       - name: Retry Apply Kubernetes Manifests
         run: |
-          for i in {1..5}; do
-            kubectl apply -f production/full2.yaml --validate=false && break || sleep 15
-          done
+          kubectl create namespace losstracker
+          kubectl apply -f production/full2.yaml --validate=false && break || sleep 15
           
           kubectl apply -f production/secret.yaml --validate=false
           kubectl apply -f production/traefik-roles.yaml --validate=false

@@ -34,6 +34,7 @@ jobs:
 
       - name: Deploy Kubernetes Manifests
         run: |
+          kubectl create namespace losstracker
           kubectl apply -f production/full2.yaml
           kubectl apply -f production/secret.yaml
 
