@@ -107,6 +107,7 @@ jobs:
         run: |
           echo "Testing Traefik routing for /api path"
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          echo "Ingress exists: $INGRESS_EXISTS"
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
             MINIKUBE_IP=$(kind get clusters | head -n 1 | xargs -I {} kind get kubeconfig --name {} --internal | grep 'server' | sed 's/^.*http/http/')
