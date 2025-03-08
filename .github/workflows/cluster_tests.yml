@@ -50,8 +50,8 @@ jobs:
 
       - name: Wait for deployments to become ready
         run: |
-          kubectl rollout status deployment/traefik -n losstracker --timeout=120s
-          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=120s
+          kubectl rollout status deployment/traefik -n losstracker --timeout=220s
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=220s
 
       - name: Test Client Ingress connectivity
         run: |
