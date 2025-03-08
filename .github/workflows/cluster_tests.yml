@@ -1,135 +1,160 @@
-name: Cluster Testing
+name: CI Pipeline for Kubernetes Deployment and Testing
 
 on:
   push:
-    branches: [redo]
+    branches:
+      - main
   pull_request:
-    branches: [redo]
+    branches:
+      - main
 
 jobs:
-  test:
+  test-deployment:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
+    - name: Set up Docker and Kind
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+        curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.18.0/kind-linux-amd64
+        sudo chmod +x kind
+        sudo mv kind /usr/local/bin/
 
-      - name: Set up Kind cluster
-        uses: engineerd/setup-kind@v0.5.0
-        with:
-          version: v0.17.0
+    - name: Install kubectl
+      run: |
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.24.1/bin/linux/amd64/kubectl
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
 
-      - name: Clean up existing Kind cluster (if any)
-        run: |
-          kind get clusters && kind delete cluster --name kind || echo "No existing Kind cluster found"
+    - name: Install kubeval for YAML validation
+      run: |
+        curl -Lo kubeval https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64
+        chmod +x kubeval
+        sudo mv kubeval /usr/local/bin/
 
-      - name: Create Kind cluster
-        run: |
-          kind create cluster
-          sleep 5  # Adding a delay to ensure cluster is fully initialized
+    - name: Set up Kind cluster and run script
+      run: |
+        # Clean up any existing clusters and create a new one
+        kind get clusters && kind delete cluster --name kind || echo "No existing Kind cluster found"
+        kind create cluster
+        sleep 5  # Give it time to initialize
 
-      - name: Set up kubectl for Kind cluster
-        run: |
-          export KUBEVERSION=$(kind version --client)
-          echo "Kube version: $KUBEVERSION"
-          kind get kubeconfig > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl cluster-info  # Verify the cluster is up and running
+        # Set up kubectl for Kind
+        export KUBEVERSION=$(kind version --client)
+        echo "Kube version: $KUBEVERSION"
+        kind get kubeconfig > kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+        kubectl cluster-info  # Verify the cluster is up
 
-      - name: Validate YAML manifests with kubeval (skip unknown schemas)
-        run: |
-          # Download and extract kubeval
-          curl -LO https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
-          tar xf kubeval-linux-amd64.tar.gz
-          chmod +x kubeval
-          # Use kubeval with --ignore-missing-schemas flag to skip missing schema errors
-          ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
+        # Validate YAML files with kubeval
+        echo "Validating YAML files with kubeval..."
+        ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
-      - name: Retry Apply Kubernetes Manifests
-        run: |
-          kubectl create namespace losstracker
-          kubectl apply -f production/full2.yaml --validate=false && break || sleep 15
-          kubectl apply -f production/secret.yaml --validate=false
-          kubectl apply -f production/traefik-roles.yaml --validate=false
+        # Apply Traefik CRDs
+        echo "Applying Traefik CRDs..."
+        kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
 
-      - name: Wait for deployments to become ready
-        run: |
-          kubectl rollout status deployment/traefik -n losstracker --timeout=220s
-          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=220s
+        # Apply Kubernetes manifests
+        echo "Applying Kubernetes manifests..."
+        kubectl create namespace losstracker
+        kubectl apply -f production/full2.yaml --validate=false
+        kubectl apply -f production/secret.yaml --validate=false
+        kubectl apply -f production/traefik-roles.yaml --validate=false
+        kubectl apply -f production/default-service-account.yaml --validate=false
 
-      - name: Test Client Ingress connectivity
-        run: |
-          echo "Port-forwarding client service to localhost:8080"
-          kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
-          PF_PID=$!
-          # Give port-forward time to initialize
+        # Wait for deployments to become ready
+        echo "Waiting for deployments to become ready..."
+        if ! kubectl rollout status deployment/traefik -n losstracker --timeout=220s; then
+          echo "ERROR: Traefik deployment failed to roll out"
+          kubectl get pods -n losstracker
+          kubectl describe deployment/traefik -n losstracker
+          exit 1
+        fi
+
+        if ! kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=220s; then
+          echo "ERROR: Client deployment failed to roll out"
+          kubectl get pods -n losstracker
+          kubectl describe deployment/loss-tracker-nginx-client -n losstracker
+          exit 1
+        fi
+
+        # Test Client Ingress connectivity
+        echo "Port-forwarding client service to localhost:8080"
+        kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
+        PF_PID=$!
+        sleep 10
+        echo "Checking client service response..."
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+        echo "HTTP status code: $HTTP_CODE"
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "Client connectivity test failed"
+          kill $PF_PID
+          exit 1
+        fi
+        kill $PF_PID
+        echo "Client connectivity test passed"
+
+        # Test API Ingress connectivity (if available)
+        echo "Checking for load-balancer-server service..."
+        if kubectl get svc load-balancer-server -n losstracker --ignore-not-found | grep -q load-balancer-server; then
+          echo "Service found, waiting for pod to be in Running state..."
+          kubectl wait --for=condition=ready pod -l app=loss-tracker-server -n losstracker --timeout=120s
+          echo "Port-forwarding API service to localhost:5005"
+          kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
+          PF_API_PID=$!
           sleep 10
-          echo "Checking client service response..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          echo "Checking API endpoint response..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
           echo "HTTP status code: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Client connectivity test failed"
-            kill $PF_PID
+            echo "API connectivity test failed"
+            kill $PF_API_PID
             exit 1
           fi
-          kill $PF_PID
-          echo "Client connectivity test passed"
+          kill $PF_API_PID
+          echo "API connectivity test passed"
+        else
+          echo "Service load-balancer-server not found; skipping API connectivity test"
+        fi
 
-      - name: Test API Ingress connectivity (if available)
-        run: |
-          echo "Checking for load-balancer-server service..."
-          SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
-          if [ -n "$SERVICE_EXISTS" ]; then
-            echo "Service found, waiting for pod to be in Running state..."
-            kubectl wait --for=condition=ready pod -l app=loss-tracker-server -n losstracker --timeout=120s
-            echo "Service found, port-forwarding API service to localhost:5005"
-            kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
-            PF_API_PID=$!
-            sleep 10
-            echo "Checking API endpoint response..."
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
-            echo "HTTP status code: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "API connectivity test failed"
-              kill $PF_API_PID
-              exit 1
-            fi
-            kill $PF_API_PID
-            echo "API connectivity test passed"
+        # Test Traefik routing for /api path
+        echo "Testing Traefik routing for /api path"
+        INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+        echo "Ingress exists: $INGRESS_EXISTS"
+        if [ -n "$INGRESS_EXISTS" ]; then
+          echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
+
+          # Port-forward the Traefik service to make it accessible locally
+          echo "Port-forwarding Traefik service to localhost:8000"
+          kubectl port-forward svc/traefik 8000:80 -n losstracker &
+          TRAEFIK_PF_PID=$!
+          sleep 5
+
+          # Test the routing for /api with host header
+          echo "Testing API endpoint through Traefik..."
+          RESPONSE=$(curl -s -D - -o /dev/null -H "Host: mlstatstracker.org" http://localhost:8000/api/)
+          HTTP_CODE=$(echo "$RESPONSE" | grep HTTP | awk '{print $2}')
+          echo "HTTP status code received for /api: $HTTP_CODE"
+          
+          # Clean up port-forward
+          kill $TRAEFIK_PF_PID
+          
+          # Check response code
+          if [[ "$HTTP_CODE" =~ ^(200|302|307|308)$ ]]; then
+            echo "Traefik routing for /api path passed successfully with HTTP status $HTTP_CODE"
           else
-            echo "Service load-balancer-server not found; skipping API connectivity test"
+            echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
+            kubectl logs -l app.kubernetes.io/name=traefik -n losstracker --tail=50
+            kubectl get ingress -n losstracker -o yaml
+            exit 1
           fi
+        else
+          echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
+        fi
 
-      - name: Test Traefik routing for /api path
-        run: |
-          echo "Testing Traefik routing for /api path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          echo "Ingress exists: $INGRESS_EXISTS"
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-            
-            # Get the correct Traefik LoadBalancer or NodePort IP
-            TRAEFIK_IP=$(kubectl get svc traefik -n losstracker -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-            
-            # If LoadBalancer IP is not found, use the NodePort IP from Kind's internal API server
-            if [ -z "$TRAEFIK_IP" ]; then
-              TRAEFIK_IP=$(kubectl get svc traefik -n losstracker -o jsonpath='{.spec.clusterIP}')
-            fi
-
-            echo "Traefik IP: $TRAEFIK_IP"
-
-            # Test the routing for /api
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$TRAEFIK_IP/api)
-            echo "HTTP status code received for /api: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
-            fi
-            echo "Traefik routing for /api path passed successfully with HTTP status 200"
-          else
-            echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
-          fi
+        echo "All tests completed successfully!"
 
