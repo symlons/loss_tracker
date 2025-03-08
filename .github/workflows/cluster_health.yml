@@ -70,19 +70,35 @@ jobs:
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
+          
+          # Check if the ingress exists in the losstracker namespace
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          
+          # If ingress exists, check routing for /api path
           if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found, checking routing for /api"
+            echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
+
+            # Get Minikube IP
             MINIKUBE_IP=$(minikube ip)
+            echo "Minikube IP: $MINIKUBE_IP"
+            
+            # Send HTTP request to /api path and capture HTTP status code
+            echo "Sending HTTP request to http://$MINIKUBE_IP:8080/api"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$MINIKUBE_IP:8080/api)
-            echo "HTTP status code for /api: $HTTP_CODE"
+            
+            echo "HTTP status code received for /api: $HTTP_CODE"
+            
+            # Check if the response code is 200 (OK)
             if [ "$HTTP_CODE" != "200" ]; then
-              echo "Traefik routing for /api path failed"
+              echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
+              echo "Possible causes: Ingress misconfiguration, service not available, Traefik routing issue."
               exit 1
             fi
-            echo "Traefik routing for /api path passed"
+
+            echo "Traefik routing for /api path passed successfully with HTTP status 200"
           else
-            echo "Ingress not found; skipping /api path routing test"
+            # If ingress does not exist, log a message and skip the test
+            echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
           fi
 
       - name: Test Traefik ingress routing for /client path
