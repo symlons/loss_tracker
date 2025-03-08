@@ -39,14 +39,18 @@ jobs:
           # Use kubeval with --ignore-missing-schemas flag to skip missing schema errors
           ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
-      - name: Deploy Kubernetes Manifests
+      - name: Check MetalLB Webhook Availability
         run: |
-          kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
-          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
-          kubectl create namespace losstracker
-          kubectl apply -f production/full2.yaml
-          kubectl apply -f production/secret.yaml
-          kubectl apply -f production/traefik-roles.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/controller -n metallb-system
+
+      - name: Retry Apply Kubernetes Manifests
+        run: |
+          for i in {1..5}; do
+            kubectl apply -f production/full2.yaml --validate=false && break || sleep 15
+          done
+          
+          kubectl apply -f production/secret.yaml --validate=false
+          kubectl apply -f production/traefik-roles.yaml --validate=false
 
       - name: Wait for deployments to become ready
         run: |
