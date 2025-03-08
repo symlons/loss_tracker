@@ -168,4 +168,3 @@ jobs:
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
           kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
-
