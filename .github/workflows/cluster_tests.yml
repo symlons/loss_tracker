@@ -49,9 +49,9 @@ jobs:
         export KUBECONFIG=kubeconfig.yaml
         kubectl cluster-info  # Verify the cluster is up
 
-        # Validate YAML manifests with kubeval
+        # Validate YAML manifests with kubeval (note: kubeval is now in PATH)
         echo "Validating YAML files with kubeval..."
-        ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
+        kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
         # Apply Traefik CRDs
         echo "Applying Traefik CRDs..."
