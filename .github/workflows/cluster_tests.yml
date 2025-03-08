@@ -41,8 +41,9 @@ jobs:
 
       - name: Deploy Kubernetes Manifests
         run: |
-          kubectl apply -f full2.yaml
-          kubectl apply -f secret.yaml
+          kubectl apply -f production/full2.yaml
+          kubectl apply -f production/secret.yaml
+          kubectl apply -f production/traefik-roles.yaml
 
       - name: Wait for deployments to become ready
         run: |
