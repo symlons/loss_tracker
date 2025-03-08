@@ -67,37 +67,42 @@ jobs:
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
           kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
 
+
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
           
-          # Check if the ingress exists in the losstracker namespace
+          # Check if an ingress exists in the 'losstracker' namespace
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
           
-          # If ingress exists, check routing for /api path
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-
-            # Get Minikube IP
+            
+            # Get the Minikube IP
             MINIKUBE_IP=$(minikube ip)
             echo "Minikube IP: $MINIKUBE_IP"
             
-            # Send HTTP request to /api path and capture HTTP status code
-            echo "Sending HTTP request to http://$MINIKUBE_IP/api"
+            # Connectivity check to port 80
+            if command -v nc &>/dev/null; then
+              echo "Checking connectivity to $MINIKUBE_IP on port 80..."
+              nc -vz $MINIKUBE_IP 80 || echo "Warning: Unable to connect to port 80 on $MINIKUBE_IP"
+            else
+              echo "netcat (nc) not available; skipping connectivity test."
+            fi
+            
+            # Send HTTP request to /api with the correct Host header
+            echo "Sending HTTP request to http://$MINIKUBE_IP/api with Host header 'mlstatstracker.org'"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
             
             echo "HTTP status code received for /api: $HTTP_CODE"
             
-            # Check if the response code is 200 (OK)
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
-              echo "Possible causes: Ingress misconfiguration, service not available, Traefik routing issue."
+              echo "Possible causes: Ingress misconfiguration, backend service not available, Traefik routing issue, or connectivity problem."
               exit 1
             fi
-
             echo "Traefik routing for /api path passed successfully with HTTP status 200"
           else
-            # If ingress does not exist, log a message and skip the test
             echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
           fi
 
