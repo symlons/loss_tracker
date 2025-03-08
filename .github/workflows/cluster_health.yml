@@ -1,3 +1,11 @@
+name: Minikube local testing env setup
+
+on:
+  push:
+    branches: [redo]
+  pull_request:
+    branches: [redo]
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -51,12 +59,12 @@ jobs:
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
-          # ... rest of your test steps ...
+          # Add your test commands here
 
       - name: Test Traefik ingress routing for / path
         run: |
           echo "Testing Traefik routing for / path"
-          # ... rest of your test steps ...
+          # Add your test commands here
 
       - name: Debugging List all pods and get logs
         run: |
