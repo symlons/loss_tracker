@@ -82,7 +82,7 @@ jobs:
             echo "Checking API endpoint response..."
 
             # Adjust endpoint path as necessary; here we're testing /api endpoint
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/api)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
             echo "HTTP status code: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
               echo "API connectivity test failed"

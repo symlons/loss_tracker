@@ -69,7 +69,7 @@ jobs:
             kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
             PF_API_PID=$!
             sleep 10
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/api)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
             echo "HTTP status code: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
               echo "API connectivity test failed"
