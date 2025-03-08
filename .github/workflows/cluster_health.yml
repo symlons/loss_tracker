@@ -44,6 +44,12 @@ jobs:
           kubectl create namespace losstracker
           kubectl apply -f production/full2.yaml
 
+      - name: Wait for deployments to become ready
+        run: |
+          kubectl rollout status deployment/traefik -n losstracker --timeout=120s
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=120s
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=traefik -n losstracker --timeout=120s
+
       - name: Check if Traefik is running
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
@@ -84,11 +90,6 @@ jobs:
           else
             echo "Ingress not found; skipping /client path routing test"
           fi
-          
-      - name: Wait for deployments to become ready
-        run: |
-          kubectl rollout status deployment/traefik -n losstracker --timeout=120s
-          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=120s
 
       - name: Test Client Ingress connectivity
         run: |
@@ -128,7 +129,7 @@ jobs:
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
 
-      - name: Check if Traefik is running
+      - name: Final Traefik status check
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
           kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
