@@ -101,12 +101,23 @@ jobs:
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-            # Get the IP address of the Kind cluster's Kubernetes API server
-            KIND_API_SERVER=$(kubectl cluster-info | grep 'Kubernetes master' | awk '/http/ {print $NF}' | sed 's/https\?:\/\///')
+
+            # Get the Kind cluster API server URL correctly
+            KIND_API_SERVER=$(kubectl cluster-info | grep 'Kubernetes master' | awk -F':// ' '{print $2}' | sed 's/\/$//')
+
+            if [ -z "$KIND_API_SERVER" ]; then
+              echo "ERROR: Could not retrieve Kind cluster API server URL."
+              exit 1
+            fi
+
             echo "Kind cluster API server: $KIND_API_SERVER"
+
+            # Attempting to connect to the API with the correct URL and host header
             echo "Attempting to connect to http://$KIND_API_SERVER/api with Host header 'mlstatstracker.org'"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$KIND_API_SERVER/api)
+
             echo "HTTP status code received for /api: $HTTP_CODE"
+
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
               echo "Verbose curl output:"
@@ -117,23 +128,4 @@ jobs:
           else
             echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
           fi
-
-      - name: Test Traefik ingress routing for / path
-        run: |
-          echo "Testing Traefik routing for / path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found, checking routing for client (/)"
-            KIND_API_SERVER=$(kubectl cluster-info | grep 'Kubernetes master' | awk '/http/ {print $NF}' | sed 's/https\?:\/\///')
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$KIND_API_SERVER/)
-            echo "HTTP status code for client (/): $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Traefik routing for / path failed"
-              exit 1
-            fi
-            echo "Traefik routing for / path passed"
-          else
-            echo "Ingress not found; skipping / path routing test"
-          fi
-
 
