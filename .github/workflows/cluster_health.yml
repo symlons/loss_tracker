@@ -44,12 +44,6 @@ jobs:
           kubectl create namespace losstracker
           kubectl apply -f production/full2.yaml
 
-      - name: Wait for deployments to become ready
-        run: |
-          kubectl rollout status deployment/traefik -n losstracker --timeout=220s
-          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=300s || (echo "loss-tracker-nginx-client failed to become ready" && kubectl describe deployment loss-tracker-nginx-client -n losstracker && kubectl get pods -n losstracker && exit 1)
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=traefik -n losstracker --timeout=220s
-
       - name: Check if Traefik is running
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
