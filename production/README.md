@@ -1,1 +1,4 @@
-kubectl patch svc traefik -n losstracker --type='json' -p='[{"op": "replace", "path": "/spec/selector", "value": {"app.kubernetes.io/name": "traefik"}}]'
+1) better screts management
+2) more tests
+3) automate ci/cd reports
+4) 

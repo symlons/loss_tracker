@@ -40,10 +40,10 @@ jobs:
 
       - name: Deploy Kubernetes Manifests
         run: |
+          kubectl apply -f production/traefik-roles.yaml
           kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
           kubectl create namespace losstracker || true
           kubectl apply -f production/secret.yaml
-          kubectl apply -f production/traefik-roles.yaml
           kubectl apply -f production/full2.yaml
 
       - name: Wait for Traefik pod to be ready
