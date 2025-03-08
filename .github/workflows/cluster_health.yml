@@ -155,5 +155,33 @@ jobs:
 
       - name: Final Traefik status check
         run: |
+          echo "Checking Traefik pods status..."
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
-          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
+
+          # Fetch and display logs for troubleshooting
+          echo "Displaying the last 20 lines of Traefik logs..."
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=20
+
+          # Check if minikube tunnel is running and provide logs for troubleshooting ingress issues
+          echo "Checking minikube tunnel status..."
+          MINIKUBE_TUNNEL_STATUS=$(pgrep -af 'minikube tunnel')
+          if [ -n "$MINIKUBE_TUNNEL_STATUS" ]; then
+            echo "Minikube tunnel is running. Logs:"
+            tail -n 50 /var/log/syslog | grep "minikube tunnel"
+          else
+            echo "Minikube tunnel is not running. Please ensure that the tunnel is started."
+            exit 1
+          fi
+
+          # Retrieve logs from the ingress controller (Traefik) to trace routing issues
+          echo "Checking Traefik ingress controller logs for routing errors..."
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=50 | grep "error"
+          
+          # Display detailed events in the namespace to check for issues
+          echo "Displaying events in the losstracker namespace to troubleshoot issues..."
+          kubectl get events -n losstracker --sort-by='.lastTimestamp'
+
+          # Final check for ingress configuration
+          echo "Checking Traefik Ingress resource..."
+          kubectl describe ingress -n losstracker
+
