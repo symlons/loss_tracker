@@ -1,3 +1,5 @@
+# This is for deployment testing with kind
+
 on:
   push:
     branches: [redo]
@@ -83,10 +85,17 @@ jobs:
           SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
           if [ -n "$SERVICE_EXISTS" ]; then
             echo "Service found, waiting for pod to be in Running state..."
-            # Wait for the pod to be running
-            POD_NAME=$(kubectl get pods -n losstracker -l app=load-balancer-server -o jsonpath='{.items[0].metadata.name}')
-            kubectl wait --for=condition=ready pod/$POD_NAME -n losstracker --timeout=300s
+            # Find the pod associated with the service using the label 'app=loss-tracker-server'
+            POD_NAME=$(kubectl get pods -n losstracker -l app=loss-tracker-server -o jsonpath='{.items[0].metadata.name}')
+            
+            # Check if pod exists
+            if [ -z "$POD_NAME" ]; then
+              echo "Error: No pods found for load-balancer-server service"
+              exit 1
+            fi
 
+            # Wait for the pod to be in Running state
+            kubectl wait --for=condition=ready pod/$POD_NAME -n losstracker --timeout=300s
             if [ $? -eq 0 ]; then
               echo "Pod is ready, port-forwarding API service to localhost:5005"
               kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
