@@ -1,0 +1,163 @@
+# GitHub Actions workflow for Kubernetes network testing
+name: K8s Network Test Pipeline
+
+on:
+  push:
+    branches: [ main, develop, redo ]
+    paths:
+      - 'k8s/**'
+      - 'helm/**'
+  pull_request:
+    branches: [ main, develop, redo ]
+    paths:
+      - 'k8s/**'
+      - 'helm/**'
+  workflow_dispatch:
+
+env:
+  TEST_NAMESPACE: losstracker-test
+  CHART_PATH: ./helm/losstracker
+
+jobs:
+  validate-manifests:
+    name: Validate K8s Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install kubeval
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo cp kubeval /usr/local/bin
+      
+      - name: Validate Kubernetes manifests
+        run: |
+          find ./k8s -name "*.yaml" -type f -exec kubeval --ignore-missing-schemas {} \;
+  
+  lint-helm:
+    name: Lint Helm Charts
+    runs-on: ubuntu-latest
+    needs: validate-manifests
+    if: ${{ contains(github.event.head_commit.modified, 'helm/') }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.10.0'
+      
+      - name: Lint Helm chart
+        run: |
+          helm lint ${{ env.CHART_PATH }}
+
+  deploy-test:
+    name: Deploy to Test Environment
+    runs-on: ubuntu-latest
+    needs: [validate-manifests, lint-helm]
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_TEST }}
+      
+      - name: Deploy to test namespace
+        run: |
+          kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+          kubectl create namespace losstracker
+          kubectl apply -f production/full2.yaml
+          kubectl apply -f production/secret.yaml
+          kubectl apply -f production/traefik-roles.yaml
+      
+      - name: Wait for deployment to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment/loss-tracker-nginx-client -n ${{ env.TEST_NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/traefik -n ${{ env.TEST_NAMESPACE }}
+
+  network-test:
+    name: Network Testing
+    runs-on: ubuntu-latest
+    needs: deploy-test
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_TEST }}
+      
+      - name: Install network testing tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y curl dnsutils netcat-openbsd
+      
+      - name: Basic connectivity tests
+        run: |
+          kubectl get nodes
+          kubectl get pods -n ${{ env.TEST_NAMESPACE }}
+          kubectl get services -n ${{ env.TEST_NAMESPACE }}
+          
+      - name: Service discovery tests
+        run: |
+          TEST_POD=$(kubectl get pods -n ${{ env.TEST_NAMESPACE }} -l app=loss-tracker-nginx-client -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -it $TEST_POD -n ${{ env.TEST_NAMESPACE }} -- nslookup load-balancer-server
+      
+      - name: Pod-to-pod communication test
+        run: |
+          TEST_POD=$(kubectl get pods -n ${{ env.TEST_NAMESPACE }} -l app=loss-tracker-nginx-client -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -it $TEST_POD -n ${{ env.TEST_NAMESPACE }} -- curl -s -o /dev/null -w "%{http_code}" load-balancer-server:5005/health | grep 200
+      
+      - name: Ingress routing test
+        run: |
+          # Get ingress endpoint
+          INGRESS_IP=$(kubectl get service traefik -n ${{ env.TEST_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Test frontend access
+          curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$INGRESS_IP/ | grep 200
+          
+          # Test API access with path rewriting
+          curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$INGRESS_IP/api/health | grep 200
+      
+      - name: Generate test report
+        run: |
+          echo "## Network Test Results" > network-test-report.md
+          echo "* Pods Running: $(kubectl get pods -n ${{ env.TEST_NAMESPACE }} --no-headers | grep Running | wc -l)" >> network-test-report.md
+          echo "* Services Available: $(kubectl get services -n ${{ env.TEST_NAMESPACE }} --no-headers | wc -l)" >> network-test-report.md
+          echo "* Ingress Routes: $(kubectl get ingressroutes -n ${{ env.TEST_NAMESPACE }} --no-headers | wc -l)" >> network-test-report.md
+          echo "* Frontend Access: $(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$INGRESS_IP/)" >> network-test-report.md
+          echo "* API Access: $(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$INGRESS_IP/api/health)" >> network-test-report.md
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: network-test-report
+          path: network-test-report.md
+
+  promote-to-staging:
+    name: Promote to Staging
+    runs-on: ubuntu-latest
+    needs: network-test
+    if: success() && github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Update kustomization for staging
+        run: |
+          # Example of preparing configs for staging environment
+          echo "Promoting configuration to staging environment"
+          # In a real pipeline, you might use Kustomize here to overlay environment-specific configs
+
+      - name: Create or update pull request to staging branch
+        uses: peter-evans/create-pull-request@v5
+        with:
+          title: "Promote network configuration to staging"
+          body: "This PR promotes the network configuration that passed all tests to the staging environment."
+          branch: "promote-to-staging"
+          base: "staging"
+          labels: "deployment, network-config"
