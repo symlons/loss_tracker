@@ -32,23 +32,6 @@ jobs:
         run: |
           kubectl config use-context minikube
 
-      - name: Install MetalLB
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
-
-      - name: Configure MetalLB IP Address Pool
-        run: |
-          kubectl apply -f - <<EOF
-          apiVersion: metallb.io/v1beta1
-          kind: IPAddressPool
-          metadata:
-            name: my-ip-pool
-            namespace: metallb-system
-          spec:
-            addresses:
-            - 192.168.0.100-192.168.0.200
-          EOF
-
       - name: Deploy Kubernetes Manifests
         run: |
           kubectl apply -f production/full2.yaml

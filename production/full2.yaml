@@ -1,13 +1,4 @@
 ---
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: default
-  namespace: metallb-system
-spec:
-  addresses:
-  - 37.27.245.60/32
----
 # Traefik ConfigMap
 apiVersion: v1
 kind: ConfigMap

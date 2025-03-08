@@ -39,10 +39,6 @@ jobs:
           # Use kubeval with --ignore-missing-schemas flag to skip missing schema errors
           ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
-      - name: Check MetalLB Webhook Availability
-        run: |
-          kubectl wait --for=condition=available --timeout=120s deployment/controller -n metallb-system
-
       - name: Retry Apply Kubernetes Manifests
         run: |
           for i in {1..5}; do
@@ -99,4 +95,3 @@ jobs:
           else
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
-
