@@ -22,6 +22,7 @@ jobs:
     - name: Set up Kind, kubectl, and kubeval
       run: |
         sudo apt-get update
+        
         # Install Kind
         curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.18.0/kind-linux-amd64
         sudo chmod +x kind
@@ -32,10 +33,11 @@ jobs:
         sudo chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
         
-        # Install kubeval for YAML validation
-        curl -Lo kubeval https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64
-        sudo chmod +x kubeval
+        # Download and extract kubeval tarball
+        curl -L -o kubeval.tar.gz https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64.tar.gz
+        tar -xzvf kubeval.tar.gz
         sudo mv kubeval /usr/local/bin/
+        sudo chmod +x /usr/local/bin/kubeval
 
     - name: Set up Kind cluster and run tests
       run: |
@@ -49,7 +51,7 @@ jobs:
         export KUBECONFIG=kubeconfig.yaml
         kubectl cluster-info  # Verify the cluster is up
 
-        # Validate YAML manifests with kubeval (note: kubeval is now in PATH)
+        # Validate YAML manifests with kubeval (now correctly in PATH)
         echo "Validating YAML files with kubeval..."
         kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
