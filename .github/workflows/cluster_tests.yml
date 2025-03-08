@@ -1,0 +1,88 @@
+name: CI Pipeline for Kubernetes Validation & Network Checking
+
+on:
+  push:
+    branches: [prod]
+  pull_request:
+    branches: [prod]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Set up Kind cluster
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: v0.17.0
+
+      - name: Create Kind cluster
+        run: kind create cluster
+
+      - name: Validate YAML manifests with kubeval
+        run: |
+          # Download and extract kubeval
+          curl -LO https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          chmod +x kubeval
+          ./kubeval production/full2.yaml production/secret.yaml
+
+      - name: Deploy Kubernetes Manifests
+        run: |
+          kubectl apply -f full2.yaml
+          kubectl apply -f secret.yaml
+
+      - name: Wait for deployments to become ready
+        run: |
+          kubectl rollout status deployment/traefik -n losstracker --timeout=120s
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker --timeout=120s
+
+      - name: Test Client Ingress connectivity
+        run: |
+          echo "Port-forwarding client service to localhost:8080"
+          kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
+          PF_PID=$!
+          # Give port-forward time to initialize
+          sleep 10
+          echo "Checking client service response..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          echo "HTTP status code: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Client connectivity test failed"
+            kill $PF_PID
+            exit 1
+          fi
+          kill $PF_PID
+          echo "Client connectivity test passed"
+
+      - name: Test API Ingress connectivity (if available)
+        run: |
+          echo "Checking for load-balancer-server service..."
+          SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
+          if [ -n "$SERVICE_EXISTS" ]; then
+            echo "Service found, port-forwarding API service to localhost:5005"
+            kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
+            PF_API_PID=$!
+            sleep 10
+            echo "Checking API endpoint response..."
+
+            # Adjust endpoint path as necessary; here we're testing /api endpoint
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/api)
+            echo "HTTP status code: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "API connectivity test failed"
+              kill $PF_API_PID
+              exit 1
+            fi
+            kill $PF_API_PID
+            echo "API connectivity test passed"
+          else
+            echo "Service load-balancer-server not found; skipping API connectivity test"
+          fi
