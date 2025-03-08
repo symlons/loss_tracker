@@ -140,6 +140,10 @@ const querySchema = Joi.object({
 // In-memory batch counter per name
 let batchCounter = {};
 
+app.get("/", (_, res) => {
+  res.status(200).send("OK");
+});
+
 app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
     // Validate request body (as before)
@@ -236,10 +240,9 @@ app.post("/query", async (req, res, next) => {
     const db = client.db("training");
 
     // Find the document with the matching name and sort by lastUpdate descending
-    const result = await db.collection("points").findOne(
-      { name: query_name },
-      { sort: { lastUpdate: -1 } },
-    );
+    const result = await db
+      .collection("points")
+      .findOne({ name: query_name }, { sort: { lastUpdate: -1 } });
 
     if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
@@ -316,4 +319,3 @@ process.on("SIGINT", async () => {
     process.exit(1);
   }
 });
-
