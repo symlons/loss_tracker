@@ -3,10 +3,10 @@ name: CI Pipeline for Kubernetes Deployment and Testing
 on:
   push:
     branches:
-      - redo
+      - main
   pull_request:
     branches:
-      - redo
+      - main
 
 jobs:
   test-deployment:
@@ -16,27 +16,28 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Set up Docker and Kind
+    - name: Verify Docker installation
+      run: docker --version
+
+    - name: Set up Kind, kubectl, and kubeval
       run: |
         sudo apt-get update
-        sudo apt-get install -y docker.io
+        # Install Kind
         curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.18.0/kind-linux-amd64
         sudo chmod +x kind
         sudo mv kind /usr/local/bin/
-
-    - name: Install kubectl
-      run: |
+        
+        # Install kubectl
         curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.24.1/bin/linux/amd64/kubectl
-        chmod +x kubectl
+        sudo chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
-
-    - name: Install kubeval for YAML validation
-      run: |
+        
+        # Install kubeval for YAML validation
         curl -Lo kubeval https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64
-        chmod +x kubeval
+        sudo chmod +x kubeval
         sudo mv kubeval /usr/local/bin/
 
-    - name: Set up Kind cluster and run script
+    - name: Set up Kind cluster and run tests
       run: |
         # Clean up any existing clusters and create a new one
         kind get clusters && kind delete cluster --name kind || echo "No existing Kind cluster found"
@@ -44,13 +45,11 @@ jobs:
         sleep 5  # Give it time to initialize
 
         # Set up kubectl for Kind
-        export KUBEVERSION=$(kind version --client)
-        echo "Kube version: $KUBEVERSION"
         kind get kubeconfig > kubeconfig.yaml
         export KUBECONFIG=kubeconfig.yaml
         kubectl cluster-info  # Verify the cluster is up
 
-        # Validate YAML files with kubeval
+        # Validate YAML manifests with kubeval
         echo "Validating YAML files with kubeval..."
         ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
@@ -58,7 +57,7 @@ jobs:
         echo "Applying Traefik CRDs..."
         kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
 
-        # Apply Kubernetes manifests
+        # Create namespace and apply manifests
         echo "Applying Kubernetes manifests..."
         kubectl create namespace losstracker
         kubectl apply -f production/full2.yaml --validate=false
@@ -87,7 +86,6 @@ jobs:
         kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
         PF_PID=$!
         sleep 10
-        echo "Checking client service response..."
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
         echo "HTTP status code: $HTTP_CODE"
         if [ "$HTTP_CODE" != "200" ]; then
@@ -107,7 +105,6 @@ jobs:
           kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
           PF_API_PID=$!
           sleep 10
-          echo "Checking API endpoint response..."
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
           echo "HTTP status code: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
@@ -127,23 +124,14 @@ jobs:
         echo "Ingress exists: $INGRESS_EXISTS"
         if [ -n "$INGRESS_EXISTS" ]; then
           echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-
-          # Port-forward the Traefik service to make it accessible locally
           echo "Port-forwarding Traefik service to localhost:8000"
           kubectl port-forward svc/traefik 8000:80 -n losstracker &
           TRAEFIK_PF_PID=$!
           sleep 5
-
-          # Test the routing for /api with host header
-          echo "Testing API endpoint through Traefik..."
           RESPONSE=$(curl -s -D - -o /dev/null -H "Host: mlstatstracker.org" http://localhost:8000/api/)
           HTTP_CODE=$(echo "$RESPONSE" | grep HTTP | awk '{print $2}')
           echo "HTTP status code received for /api: $HTTP_CODE"
-          
-          # Clean up port-forward
           kill $TRAEFIK_PF_PID
-          
-          # Check response code
           if [[ "$HTTP_CODE" =~ ^(200|302|307|308)$ ]]; then
             echo "Traefik routing for /api path passed successfully with HTTP status $HTTP_CODE"
           else
