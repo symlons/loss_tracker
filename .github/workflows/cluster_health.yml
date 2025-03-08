@@ -14,30 +14,18 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Minikube
+        uses: medyagh/setup-minikube@latest
+
+      - name: Try the cluster!
+        run: kubectl get pods -A
+
+      - name: Build image
         run: |
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          sudo mv minikube-linux-amd64 /usr/local/bin/minikube
-          sudo chmod +x /usr/local/bin/minikube
+          minikube image build -t local/loss-tracker-nginx-client:latest ./production/client
+          minikube image build -t local/loss-tracker-server:latest ./production/server
+          minikube image build -t local/traefik:latest ./production/traefik
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-
-      - name: Start Minikube
-        run: |
-          minikube start --driver=docker --memory=4g --cpus=2
-
-      - name: Set up kubectl to use Minikube
-        run: |
-          kubectl config use-context minikube
-
-      - name: Start Minikube tunnel
-        run: |
-          nohup minikube tunnel & > tunnel.log 2>&1 &
-          sleep 10
-
-      - name: Deploy Kubernetes Manifests
+      - name: Deploy to minikube
         run: |
           kubectl apply -f production/traefik-roles.yaml
           kubectl apply -f production/default-service-account.yaml
@@ -69,23 +57,23 @@ jobs:
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
-          
+
           # Check if the ingress exists in the losstracker namespace
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          
+
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
 
             # Get Minikube IP
             MINIKUBE_IP=$(minikube ip)
             echo "Minikube IP: $MINIKUBE_IP"
-            
+
             # Send HTTP request to /api path and capture HTTP status code
             echo "Sending HTTP request to http://$MINIKUBE_IP/api with Host header"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
-            
+
             echo "HTTP status code received for /api: $HTTP_CODE"
-            
+
             # Check if the response code is 200 (OK)
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
@@ -158,9 +146,7 @@ jobs:
           fi
         continue-on-error: true
 
-
       - name: Final Traefik status check
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
           kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
-
