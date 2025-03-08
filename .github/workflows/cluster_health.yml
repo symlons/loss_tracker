@@ -3,16 +3,9 @@ name: K8s Network Test Pipeline
 
 on:
   push:
-    branches: [ main, develop, redo ]
-    paths:
-      - 'k8s/**'
-      - 'helm/**'
+    branches: [redo]
   pull_request:
-    branches: [ main, develop, redo ]
-    paths:
-      - 'k8s/**'
-      - 'helm/**'
-  workflow_dispatch:
+    branches: [redo]
 
 env:
   TEST_NAMESPACE: losstracker-test
@@ -68,7 +61,7 @@ jobs:
       
       - name: Deploy to test namespace
         run: |
-          kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+          kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
           kubectl create namespace losstracker
           kubectl apply -f production/full2.yaml
           kubectl apply -f production/secret.yaml
