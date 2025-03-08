@@ -15,6 +15,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+      with:
+        ref: redo  # Checkout the 'redo' branch
 
     - name: Verify Docker installation
       run: docker --version
@@ -33,11 +35,10 @@ jobs:
         sudo chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
         
-        # Download and extract kubeval tarball
-        curl -L -o kubeval.tar.gz https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64.tar.gz
-        tar -xzvf kubeval.tar.gz
+        # Download kubeval binary directly instead of tarball
+        curl -Lo kubeval https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64
+        sudo chmod +x kubeval
         sudo mv kubeval /usr/local/bin/
-        sudo chmod +x /usr/local/bin/kubeval
 
     - name: Set up Kind cluster and run tests
       run: |
@@ -147,4 +148,3 @@ jobs:
         fi
 
         echo "All tests completed successfully!"
-
