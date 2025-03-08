@@ -1,4 +1,4 @@
-# This is for deployment testing with kind
+name: Cluster Testing
 
 on:
   push:
@@ -85,36 +85,21 @@ jobs:
           SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
           if [ -n "$SERVICE_EXISTS" ]; then
             echo "Service found, waiting for pod to be in Running state..."
-            # Find the pod associated with the service using the label 'app=loss-tracker-server'
-            POD_NAME=$(kubectl get pods -n losstracker -l app=loss-tracker-server -o jsonpath='{.items[0].metadata.name}')
-            
-            # Check if pod exists
-            if [ -z "$POD_NAME" ]; then
-              echo "Error: No pods found for load-balancer-server service"
-              exit 1
-            fi
-
-            # Wait for the pod to be in Running state
-            kubectl wait --for=condition=ready pod/$POD_NAME -n losstracker --timeout=300s
-            if [ $? -eq 0 ]; then
-              echo "Pod is ready, port-forwarding API service to localhost:5005"
-              kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
-              PF_API_PID=$!
-              sleep 10
-              echo "Checking API endpoint response..."
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
-              echo "HTTP status code: $HTTP_CODE"
-              if [ "$HTTP_CODE" != "200" ]; then
-                echo "API connectivity test failed"
-                kill $PF_API_PID
-                exit 1
-              fi
+            kubectl wait --for=condition=ready pod -l app=loss-tracker-server -n losstracker --timeout=120s
+            echo "Service found, port-forwarding API service to localhost:5005"
+            kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
+            PF_API_PID=$!
+            sleep 10
+            echo "Checking API endpoint response..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
+            echo "HTTP status code: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "API connectivity test failed"
               kill $PF_API_PID
-              echo "API connectivity test passed"
-            else
-              echo "Error: Pod did not become ready in time"
               exit 1
             fi
+            kill $PF_API_PID
+            echo "API connectivity test passed"
           else
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
@@ -126,9 +111,19 @@ jobs:
           echo "Ingress exists: $INGRESS_EXISTS"
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-            MINIKUBE_IP=$(kind get clusters | head -n 1 | xargs -I {} kind get kubeconfig --name {} --internal | grep 'server' | sed 's/^.*http/http/')
-            echo "Kind cluster API server: $MINIKUBE_IP"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
+            
+            # Get the correct Traefik LoadBalancer or NodePort IP
+            TRAEFIK_IP=$(kubectl get svc traefik -n losstracker -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            
+            # If LoadBalancer IP is not found, use the NodePort IP from Kind's internal API server
+            if [ -z "$TRAEFIK_IP" ]; then
+              TRAEFIK_IP=$(kubectl get svc traefik -n losstracker -o jsonpath='{.spec.clusterIP}')
+            fi
+
+            echo "Traefik IP: $TRAEFIK_IP"
+
+            # Test the routing for /api
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$TRAEFIK_IP/api)
             echo "HTTP status code received for /api: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
