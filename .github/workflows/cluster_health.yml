@@ -33,6 +33,11 @@ jobs:
         run: |
           kubectl config use-context minikube
 
+      - name: Start Minikube tunnel
+        run: |
+          nohup minikube tunnel > tunnel.log 2>&1 &
+          sleep 10
+
       - name: Deploy Kubernetes Manifests
         run: |
           kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
