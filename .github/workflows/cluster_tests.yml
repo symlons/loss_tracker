@@ -3,10 +3,10 @@ name: CI Pipeline for Kubernetes Deployment and Testing
 on:
   push:
     branches:
-      - main
+      - redo
   pull_request:
     branches:
-      - main
+      - redo
 
 jobs:
   test-deployment:
