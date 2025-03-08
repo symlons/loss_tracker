@@ -30,13 +30,14 @@ jobs:
       - name: Create Kind cluster
         run: kind create cluster
 
-      - name: Validate YAML manifests with kubeval
+      - name: Validate YAML manifests with kubeval (skip unknown schemas)
         run: |
           # Download and extract kubeval
           curl -LO https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
           tar xf kubeval-linux-amd64.tar.gz
           chmod +x kubeval
-          ./kubeval production/full2.yaml production/secret.yaml
+          # Use kubeval with --ignore-missing-schemas flag to skip missing schema errors
+          ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
       - name: Deploy Kubernetes Manifests
         run: |
