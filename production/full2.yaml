@@ -90,7 +90,6 @@ spec:
       labels:
         app: loss-tracker-server
     spec:
-      hostNetwork: true
       containers:
       - name: loss-tracker-server
         image: symlon/loss-tracker:server

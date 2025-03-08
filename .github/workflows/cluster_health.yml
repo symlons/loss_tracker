@@ -37,12 +37,27 @@ jobs:
       - name: Wait for pods to be ready
         run: |
           echo "Waiting for pods to be ready..."
-          PODS=("loss-tracker-nginx-client" "loss-tracker-server" "traefik")
-          for POD in "${PODS[@]}"; do
-            echo "Waiting for $POD pod to be ready..."
-            kubectl wait --namespace=losstracker --for=condition=Ready pod/$POD --timeout=300s
-            echo "$POD pod is ready."
+          DEPLOYMENTS=("loss-tracker-nginx-client" "loss-tracker-server")
+          for DEPLOYMENT in "${DEPLOYMENTS[@]}"; do
+            echo "Waiting for pods of deployment $DEPLOYMENT to be ready..."
+            POD_NAME=$(kubectl get pods -n losstracker -l app=$DEPLOYMENT -o jsonpath='{.items[0].metadata.name}')
+            if [ -n "$POD_NAME" ]; then
+              kubectl wait --namespace=losstracker --for=condition=Ready pod/$POD_NAME --timeout=300s
+              echo "Pods of deployment $DEPLOYMENT are ready."
+            else
+              echo "No pods found for deployment $DEPLOYMENT."
+              exit 1
+            fi
           done
+          echo "Waiting for pods of deployment traefik to be ready..."
+          TRAEFIK_POD_NAME=$(kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].metadata.name}')
+          if [ -n "$TRAEFIK_POD_NAME" ]; then
+            kubectl wait --namespace=losstracker --for=condition=Ready pod/$TRAEFIK_POD_NAME --timeout=300s
+            echo "Pods of deployment traefik are ready."
+          else
+            echo "No pods found for deployment traefik."
+            exit 1
+          fi
           echo "All pods are ready."
 
       - name: Check if Traefik is running
