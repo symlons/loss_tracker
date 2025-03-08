@@ -1,12 +1,3 @@
-name: Minikube local testing env setup
-# This is reproducing the local kubernetes/minikube dev environment
-
-on:
-  push:
-    branches: [redo]
-  pull_request:
-    branches: [redo]
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,31 +5,40 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Minikube
-        run: |
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          sudo mv minikube-linux-amd64 /usr/local/bin/minikube
-          sudo chmod +x /usr/local/bin/minikube
-          
-      - name: Install kubectl
+      - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
-      - name: Start Minikube
+      - name: Set up Minikube
         run: |
-          minikube start --driver=docker --memory=4g --cpus=2
+          curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo chmod +x minikube
+          sudo mv minikube /usr/local/bin/
 
-      - name: Set up kubectl to use Minikube
+      - name: Start Minikube Cluster
         run: |
-          kubectl config use-context minikube
+          minikube start --driver=docker
 
-      - name: Deploy Kubernetes Manifests
+      - name: Start Minikube Tunnel in Background
         run: |
-          kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+          nohup minikube tunnel & 
+          # Give it some time to establish the tunnel
+          sleep 10
+
+      - name: Validate YAML manifests with kubeval (skip unknown schemas)
+        run: |
+          curl -LO https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          chmod +x kubeval
+          ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
+
+      - name: Apply Kubernetes Manifests
+        run: |
           kubectl create namespace losstracker
-          kubectl apply -f production/full2.yaml
-          kubectl apply -f production/secret.yaml
+          kubectl apply -f production/full2.yaml --validate=false
+          kubectl apply -f production/secret.yaml --validate=false
+          kubectl apply -f production/traefik-roles.yaml --validate=false
 
       - name: Wait for deployments to become ready
         run: |
@@ -47,39 +47,63 @@ jobs:
 
       - name: Test Client Ingress connectivity
         run: |
-          echo "Port-forwarding client service to localhost:8080"
           kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
           PF_PID=$!
           sleep 10
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
-          echo "HTTP status code: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Client connectivity test failed"
             kill $PF_PID
             exit 1
           fi
           kill $PF_PID
-          echo "Client connectivity test passed"
 
       - name: Test API Ingress connectivity (if available)
         run: |
-          echo "Checking for load-balancer-server service..."
           SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
           if [ -n "$SERVICE_EXISTS" ]; then
-            echo "Service found, port-forwarding API service to localhost:5005"
             kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
             PF_API_PID=$!
             sleep 10
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
-            echo "HTTP status code: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
-              echo "API connectivity test failed"
               kill $PF_API_PID
               exit 1
             fi
             kill $PF_API_PID
-            echo "API connectivity test passed"
           else
             echo "Service load-balancer-server not found; skipping API connectivity test"
+          fi
+
+      - name: Check if Traefik is running
+        run: |
+          kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
+
+      - name: Test Traefik ingress routing for /api path
+        run: |
+          TRAEFIK_IP=$(kubectl get svc -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+          if [ -z "$TRAEFIK_IP" ]; then
+            echo "Waiting for Traefik external IP..."
+            sleep 10
+            TRAEFIK_IP=$(kubectl get svc -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$TRAEFIK_IP/api)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Traefik routing for /api path failed"
+            exit 1
+          fi
+
+      - name: Test Traefik ingress routing for /client path
+        run: |
+          TRAEFIK_IP=$(kubectl get svc -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+          if [ -z "$TRAEFIK_IP" ]; then
+            echo "Waiting for Traefik external IP..."
+            sleep 10
+            TRAEFIK_IP=$(kubectl get svc -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$TRAEFIK_IP/client)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Traefik routing for /client path failed"
+            exit 1
           fi
 

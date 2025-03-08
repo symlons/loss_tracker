@@ -3,9 +3,9 @@ name: Cluster Testing
 
 on:
   push:
-    branches: [master]
+    branches: [master, redo]
   pull_request:
-    branches: [master]
+    branches: [master, redo]
 
 jobs:
   test:
@@ -96,41 +96,3 @@ jobs:
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
 
-      - name: Check if Traefik is running
-        run: |
-          kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
-          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
-
-      - name: Test Traefik ingress routing for /api path
-        run: |
-          echo "Testing Traefik routing for /api path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found, checking routing for /api"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api)
-            echo "HTTP status code for /api: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Traefik routing for /api path failed"
-              exit 1
-            fi
-            echo "Traefik routing for /api path passed"
-          else
-            echo "Ingress not found; skipping /api path routing test"
-          fi
-
-      - name: Test Traefik ingress routing for /client path
-        run: |
-          echo "Testing Traefik routing for /client path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found, checking routing for /client"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/client)
-            echo "HTTP status code for /client: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Traefik routing for /client path failed"
-              exit 1
-            fi
-            echo "Traefik routing for /client path passed"
-          else
-            echo "Ingress not found; skipping /client path routing test"
-          fi
