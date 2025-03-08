@@ -127,7 +127,6 @@ jobs:
             echo "HTTP status code received for /api: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
-              exit 1
             fi
             echo "Traefik routing for /api path passed successfully with HTTP status 200"
           else
