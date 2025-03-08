@@ -1,4 +1,5 @@
-name: CI Pipeline for Kubernetes Validation & Network Checking
+name: Minikube local testing env setup
+# This is reproducing the local kubernetes/minikube dev environment
 
 on:
   push:
