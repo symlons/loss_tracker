@@ -1,4 +1,4 @@
-name: CI Pipeline for Kubernetes Validation & Network Checking
+name: Cluster Testing
 
 on:
   push:
