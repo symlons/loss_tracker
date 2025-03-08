@@ -23,6 +23,10 @@ jobs:
         with:
           version: v0.17.0
 
+      - name: Clean up existing Kind cluster (if any)
+        run: |
+          kind get clusters && kind delete cluster --name kind || echo "No existing Kind cluster found"
+
       - name: Create Kind cluster
         run: kind create cluster
 
@@ -86,3 +90,4 @@ jobs:
           else
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
+
