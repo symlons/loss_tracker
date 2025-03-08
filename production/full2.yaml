@@ -74,6 +74,53 @@ spec:
       targetPort: 80
   type: ClusterIP
 ---
+# Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loss-tracker-server
+  namespace: losstracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loss-tracker-server
+  template:
+    metadata:
+      labels:
+        app: loss-tracker-server
+    spec:
+      containers:
+      - name: loss-tracker-server
+        image: symlon/loss-tracker:server
+        imagePullPolicy: Always
+        ports: 
+        - containerPort: 5005
+        - containerPort: 3005
+      imagePullSecrets:
+        - name: regcred
+---
+# Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: load-balancer-server
+  namespace: losstracker
+  labels:
+    app: loss-tracker-server
+spec:
+  selector:
+    app: loss-tracker-server
+  ports: 
+  - name: http
+    port: 5005
+    targetPort: 5005
+    protocol: TCP 
+  - name: socket
+    port: 3005
+    targetPort: 3005
+    protocol: TCP
+---
 # Ingress for the Client  /
 apiVersion: networking.k8s.io/v1
 kind: Ingress
