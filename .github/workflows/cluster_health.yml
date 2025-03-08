@@ -56,6 +56,29 @@ jobs:
             exit 1
           fi
 
+      - name: Debugging - Check Ingress Configuration
+        run: |
+          echo "Describing ingress configuration..."
+          kubectl describe ingress simple-ingress -n losstracker
+
+      - name: Debugging - Check Service Status
+        run: |
+          echo "Listing services in losstracker namespace..."
+          kubectl get svc -n losstracker
+          echo "Describing loss-tracker-nginx-client service..."
+          kubectl describe svc loss-tracker-nginx-client -n losstracker
+          echo "Describing load-balancer-server service..."
+          kubectl describe svc load-balancer-server -n losstracker
+
+      - name: Debugging - Check Pod Logs
+        run: |
+          echo "Fetching logs for Traefik pods..."
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik
+          echo "Fetching logs for loss-tracker-nginx-client pods..."
+          kubectl logs -n losstracker -l app=loss-tracker-nginx-client
+          echo "Fetching logs for loss-tracker-server pods..."
+          kubectl logs -n losstracker -l app=loss-tracker-server
+
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
