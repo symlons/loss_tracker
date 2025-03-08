@@ -41,7 +41,7 @@ jobs:
       - name: Deploy Kubernetes Manifests
         run: |
           kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
-          kubectl create namespace losstracker
+          kubectl create namespace losstracker || true
           kubectl apply -f production/secret.yaml
           kubectl apply -f production/full2.yaml
           kubectl apply -f production/traefik-roles.yaml
@@ -124,6 +124,21 @@ jobs:
           else
             echo "Service load-balancer-server not found; skipping API connectivity test"
           fi
+
+      - name: Wait for Traefik pod to be ready
+        run: |
+          echo "Waiting for Traefik pod to be ready..."
+          for i in {1..30}; do
+            STATUS=$(kubectl get pod -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.phase}')
+            if [ "$STATUS" == "Running" ]; then
+              echo "Traefik pod is running."
+              exit 0
+            fi
+            echo "Waiting for Traefik pod to be ready... ($i/30)"
+            sleep 10
+          done
+          echo "Traefik pod did not reach Running state in time."
+          exit 1
 
       - name: Final Traefik status check
         run: |
