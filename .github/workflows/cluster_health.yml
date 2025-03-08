@@ -113,23 +113,25 @@ jobs:
 
           echo "Describing all pods for detailed status..."
           kubectl describe pods -n losstracker
+        continue-on-error: true
 
-            - name: Test Client Ingress connectivity
-              run: |
-                echo "Port-forwarding client service to localhost:8080"
-                kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
-                PF_PID=$!
-                sleep 10
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
-                echo "HTTP status code: $HTTP_CODE"
-                if [ "$HTTP_CODE" != "200" ]; then
-                  echo "Client connectivity test failed"
-                  kill $PF_PID
-                  exit 1
-                fi
-                kill $PF_PID
-                echo "Client connectivity test passed"
-              continue-on-error: true
+
+      - name: Test Client Ingress connectivity
+        run: |
+          echo "Port-forwarding client service to localhost:8080"
+          kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
+          PF_PID=$!
+          sleep 10
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          echo "HTTP status code: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Client connectivity test failed"
+            kill $PF_PID
+            exit 1
+          fi
+          kill $PF_PID
+          echo "Client connectivity test passed"
+        continue-on-error: true
 
       - name: Test API Ingress connectivity (if available)
         run: |
