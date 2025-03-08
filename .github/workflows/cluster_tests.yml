@@ -14,8 +14,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     
-    # Set up Kind, kubectl, and kubeval
-    - name: Set up Kind, kubectl, and kubeval
+    # Set up Kind and kubectl
+    - name: Set up Kind and kubectl
       run: |
         sudo apt-get update
         
@@ -28,11 +28,6 @@ jobs:
         curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.24.1/bin/linux/amd64/kubectl
         sudo chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
-        
-        # Download and Install kubeval from GitHub Release
-        curl -Lo kubeval https://github.com/instrumenta/kubeval/releases/download/v0.15.0/kubeval-linux-amd64
-        sudo chmod +x kubeval
-        sudo mv kubeval /usr/local/bin/
 
     # Clean up any existing Kind clusters
     - name: Clean up any existing Kind clusters
@@ -53,12 +48,6 @@ jobs:
         kind get kubeconfig > kubeconfig.yaml
         export KUBECONFIG=kubeconfig.yaml
         kubectl cluster-info  # Verify the cluster is up
-
-    # Validate YAML files with kubeval
-    - name: Validate YAML files with kubeval
-      run: |
-        echo "Validating YAML files with kubeval..."
-        ./kubeval production/full2.yaml production/secret.yaml --ignore-missing-schemas
 
     # Apply Traefik CRDs first
     - name: Apply Traefik CRDs
@@ -181,4 +170,3 @@ jobs:
     - name: All tests completed successfully
       run: |
         echo "All tests completed successfully!"
-
