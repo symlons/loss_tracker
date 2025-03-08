@@ -59,12 +59,39 @@ jobs:
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
-          # Add your test commands here
+          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          if [ -n "$INGRESS_EXISTS" ]; then
+            echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
+            MINIKUBE_IP=$(minikube ip)
+            echo "Minikube IP: $MINIKUBE_IP"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
+            echo "HTTP status code received for /api: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
+              exit 1
+            fi
+            echo "Traefik routing for /api path passed successfully with HTTP status 200"
+          else
+            echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
+          fi
 
       - name: Test Traefik ingress routing for / path
         run: |
           echo "Testing Traefik routing for / path"
-          # Add your test commands here
+          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          if [ -n "$INGRESS_EXISTS" ]; then
+            echo "Ingress found, checking routing for client (/)"
+            MINIKUBE_IP=$(minikube ip)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/)
+            echo "HTTP status code for client (/): $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "Traefik routing for / path failed"
+              exit 1
+            fi
+            echo "Traefik routing for / path passed"
+          else
+            echo "Ingress not found; skipping / path routing test"
+          fi
 
       - name: Debugging List all pods and get logs
         run: |
