@@ -17,33 +17,49 @@ data:
     providers:
       kubernetesCRD:
         ingressClass: traefik
+        namespaces:
+          - losstracker
       kubernetesIngress: {}  # Ensure Ingress objects are picked up
     log:
       level: DEBUG  # Useful for debugging
 ---
-# Loss Tracker NGINX Client Deployment
+# Middleware to rewrite /api paths
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: rewriteapi
+  namespace: losstracker
+spec:
+  replacePathRegex:
+    regex: "^/api/(.*)"
+    replacement: "/$1"
+---
+# Client Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: loss-tracker-nginx-client
+  name: loss-tracker-nginx-client 
   namespace: losstracker
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: loss-tracker-nginx-client
+  replicas: 1
   template:
     metadata:
       labels:
         app: loss-tracker-nginx-client
     spec:
       containers:
-        - name: loss-tracker-nginx-client
-          image: nginx:alpine  # Replace with your image if needed
+        - image: symlon/loss-tracker:client
+          imagePullPolicy: Always
+          name: loss-tracker-nginx-client
           ports:
-            - containerPort: 80
+          - containerPort: 80
+      imagePullSecrets:
+        - name: regcred
 ---
-# Loss Tracker NGINX Client Service (ClusterIP)
+# Client Service 
 apiVersion: v1
 kind: Service
 metadata:
@@ -58,7 +74,7 @@ spec:
       targetPort: 80
   type: ClusterIP
 ---
-# Ingress for the NGINX Client (simple-ingress)
+# Ingress for the Client  /
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -80,6 +96,45 @@ spec:
                 port:
                   number: 80
 ---
+# Ingress for /api/socket
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: socket-ingress
+  namespace: losstracker
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mlstatstracker.org
+      http:
+        paths:
+          - path: /api/socket
+            pathType: Prefix
+            backend:
+              service:
+                name: load-balancer-server
+                port:
+                  number: 5005
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: losstracker-api
+  namespace: losstracker
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`mlstatstracker.org`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: load-balancer-server
+          port: 5005
+      middlewares:
+        - name: rewriteapi # Reference to the middleware
+---
+# Traefik Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -97,9 +152,14 @@ spec:
       protocol: TCP
       port: 443
       targetPort: 443
+    - name: dashboard
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
   type: LoadBalancer  # or NodePort if you're not using a cloud provider
 
 ---
+# Traefik Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,7 +168,7 @@ metadata:
   labels:
     app.kubernetes.io/name: traefik
 spec:
-  replicas: 1  # You can scale as needed
+  replicas: 1  # scale as needed 
   selector:
     matchLabels:
       app.kubernetes.io/name: traefik
@@ -126,6 +186,8 @@ spec:
             - "--entrypoints.websecure.address=:443"
             - "--providers.kubernetescrd"
             - "--providers.kubernetesingress"
+            - "--api.insecure=true"
+            - "--log.level=DEBUG"
           ports:
             - name: http
               containerPort: 80

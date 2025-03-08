@@ -21,6 +21,16 @@ rules:
   - "list"
   - "watch"
 
+# Permissions for Kubernetes IngressClass resources (to fix the error you're seeing)
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - "ingressclasses"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
 # Permissions for Kubernetes Services, Endpoints, and Secrets (needed for Traefik routing)
 - apiGroups:
   - ""
@@ -32,18 +42,4 @@ rules:
   - "get"
   - "list"
   - "watch"
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: traefik-rolebinding
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: losstracker
-roleRef:
-  kind: ClusterRole
-  name: traefik-role
-  apiGroup: rbac.authorization.k8s.io
 
