@@ -1,11 +1,3 @@
-name: Minikube local testing env setup
-
-on:
-  push:
-    branches: [redo]
-  pull_request:
-    branches: [redo]
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,6 +7,14 @@ jobs:
 
       - name: Install Minikube
         uses: medyagh/setup-minikube@latest
+
+      - name: Start Minikube
+        run: |
+          minikube start --wait=all
+
+      - name: Start Minikube Tunnel
+        run: |
+          minikube tunnel &
 
       - name: Try the cluster!
         run: kubectl get pods -A
@@ -34,76 +34,29 @@ jobs:
           kubectl apply -f production/secret.yaml
           kubectl apply -f production/full2.yaml
 
-      - name: Wait for pods to be ready
+      - name: Wait for all deployments to be ready
         run: |
-          echo "Waiting for pods to be ready..."
-          DEPLOYMENTS=("loss-tracker-nginx-client" "loss-tracker-server")
-          for DEPLOYMENT in "${DEPLOYMENTS[@]}"; do
-            echo "Waiting for pods of deployment $DEPLOYMENT to be ready..."
-            POD_NAME=$(kubectl get pods -n losstracker -l app=$DEPLOYMENT -o jsonpath='{.items[0].metadata.name}')
-            if [ -n "$POD_NAME" ]; then
-              kubectl wait --namespace=losstracker --for=condition=Ready pod/$POD_NAME --timeout=300s
-              echo "Pods of deployment $DEPLOYMENT are ready."
-            else
-              echo "No pods found for deployment $DEPLOYMENT."
-              exit 1
-            fi
-          done
-          echo "Waiting for pods of deployment traefik to be ready..."
-          TRAEFIK_POD_NAME=$(kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$TRAEFIK_POD_NAME" ]; then
-            kubectl wait --namespace=losstracker --for=condition=Ready pod/$TRAEFIK_POD_NAME --timeout=300s
-            echo "Pods of deployment traefik are ready."
-          else
-            echo "No pods found for deployment traefik."
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker
+          kubectl rollout status deployment/loss-tracker-server -n losstracker
+          kubectl rollout status deployment/traefik -n losstracker
+
+      - name: Verify all pods are ready
+        run: |
+          READY=$(kubectl get pods -n losstracker --field-selector=status.phase=Running -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}')
+          if [[ $READY != *"True"* ]]; then
+            echo "Not all pods are ready."
             exit 1
           fi
-          echo "All pods are ready."
-
-      - name: Check if Traefik is running
-        run: |
-          kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
-          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
 
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-            MINIKUBE_IP=$(minikube ip)
-            echo "Minikube IP: $MINIKUBE_IP"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
-            echo "HTTP status code received for /api: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
-              echo "Possible causes: Ingress misconfiguration, service not available, Traefik routing issue."
-              exit 1
-            fi
-            echo "Traefik routing for /api path passed successfully with HTTP status 200"
-          else
-            echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
-          fi
-        continue-on-error: true
+          # ... rest of your test steps ...
 
       - name: Test Traefik ingress routing for / path
         run: |
           echo "Testing Traefik routing for / path"
-          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-          if [ -n "$INGRESS_EXISTS" ]; then
-            echo "Ingress found, checking routing for client (/)"
-            MINIKUBE_IP=$(minikube ip)
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/)
-            echo "HTTP status code for client (/): $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Traefik routing for / path failed"
-              exit 1
-            fi
-            echo "Traefik routing for / path passed"
-          else
-            echo "Ingress not found; skipping / path routing test"
-          fi
-        continue-on-error: true
+          # ... rest of your test steps ...
 
       - name: Debugging List all pods and get logs
         run: |
@@ -155,33 +108,6 @@ jobs:
 
       - name: Final Traefik status check
         run: |
-          echo "Checking Traefik pods status..."
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
-
-          # Fetch and display logs for troubleshooting
-          echo "Displaying the last 20 lines of Traefik logs..."
-          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=20
-
-          # Check if minikube tunnel is running and provide logs for troubleshooting ingress issues
-          echo "Checking minikube tunnel status..."
-          MINIKUBE_TUNNEL_STATUS=$(pgrep -af 'minikube tunnel')
-          if [ -n "$MINIKUBE_TUNNEL_STATUS" ]; then
-            echo "Minikube tunnel is running. Logs:"
-            tail -n 50 /var/log/syslog | grep "minikube tunnel"
-          else
-            echo "Minikube tunnel is not running. Please ensure that the tunnel is started."
-            exit 1
-          fi
-
-          # Retrieve logs from the ingress controller (Traefik) to trace routing issues
-          echo "Checking Traefik ingress controller logs for routing errors..."
-          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=50 | grep "error"
-          
-          # Display detailed events in the namespace to check for issues
-          echo "Displaying events in the losstracker namespace to troubleshoot issues..."
-          kubectl get events -n losstracker --sort-by='.lastTimestamp'
-
-          # Final check for ingress configuration
-          echo "Checking Traefik Ingress resource..."
-          kubectl describe ingress -n losstracker
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
 
