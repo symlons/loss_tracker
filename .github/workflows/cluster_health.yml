@@ -34,20 +34,16 @@ jobs:
           kubectl apply -f production/secret.yaml
           kubectl apply -f production/full2.yaml
 
-      - name: Wait for Traefik pod to be ready
+      - name: Wait for pods to be ready
         run: |
-          echo "Waiting for Traefik pod to be ready..."
-          for i in {1..30}; do
-            STATUS=$(kubectl get pod -n losstracker -l app.kubernetes.io/name=traefik -o jsonpath='{.items[0].status.phase}')
-            if [ "$STATUS" == "Running" ]; then
-              echo "Traefik pod is running."
-              exit 0
-            fi
-            echo "Waiting for Traefik pod to be ready... ($i/30)"
-            sleep 10
+          echo "Waiting for pods to be ready..."
+          PODS=("loss-tracker-nginx-client" "loss-tracker-server" "traefik")
+          for POD in "${PODS[@]}"; do
+            echo "Waiting for $POD pod to be ready..."
+            kubectl wait --namespace=losstracker --for=condition=Ready pod/$POD --timeout=300s
+            echo "$POD pod is ready."
           done
-          echo "Traefik pod did not reach Running state in time."
-          exit 1
+          echo "All pods are ready."
 
       - name: Check if Traefik is running
         run: |
@@ -57,30 +53,18 @@ jobs:
       - name: Test Traefik ingress routing for /api path
         run: |
           echo "Testing Traefik routing for /api path"
-
-          # Check if the ingress exists in the losstracker namespace
           INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
-
           if [ -n "$INGRESS_EXISTS" ]; then
             echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
-
-            # Get Minikube IP
             MINIKUBE_IP=$(minikube ip)
             echo "Minikube IP: $MINIKUBE_IP"
-
-            # Send HTTP request to /api path and capture HTTP status code
-            echo "Sending HTTP request to http://$MINIKUBE_IP/api with Host header"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
-
             echo "HTTP status code received for /api: $HTTP_CODE"
-
-            # Check if the response code is 200 (OK)
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
               echo "Possible causes: Ingress misconfiguration, service not available, Traefik routing issue."
               exit 1
             fi
-
             echo "Traefik routing for /api path passed successfully with HTTP status 200"
           else
             echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
@@ -110,11 +94,9 @@ jobs:
         run: |
           echo "Listing all pods in losstracker namespace..."
           kubectl get pods -n losstracker -o wide
-
           echo "Describing all pods for detailed status..."
           kubectl describe pods -n losstracker
         continue-on-error: true
-
 
       - name: Test Client Ingress connectivity
         run: |
