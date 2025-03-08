@@ -42,6 +42,7 @@ jobs:
       - name: Deploy Kubernetes Manifests
         run: |
           kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
           kubectl create namespace losstracker
           kubectl apply -f production/full2.yaml
           kubectl apply -f production/secret.yaml

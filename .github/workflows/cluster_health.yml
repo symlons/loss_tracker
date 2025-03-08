@@ -26,7 +26,7 @@ jobs:
       
       - name: Validate Kubernetes manifests
         run: |
-          find ./k8s -name "*.yaml" -type f -exec kubeval --ignore-missing-schemas {} \;
+          find ./production -name "*.yaml" -type f -exec kubeval --ignore-missing-schemas {} \;
   
   lint-helm:
     name: Lint Helm Charts
