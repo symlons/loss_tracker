@@ -2,9 +2,9 @@ name: Minikube local testing env setup
 
 on:
   push:
-    branches: [redo]
+    branches: [master]
   pull_request:
-    branches: [redo]
+    branches: [master]
 
 jobs:
   test:
@@ -171,4 +171,3 @@ jobs:
         run: |
           kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
           kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
-
