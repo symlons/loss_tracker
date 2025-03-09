@@ -2,8 +2,8 @@
     "compilerOptions": {
         "target": "esnext",                // or your desired ECMAScript version
         "module": "esnext",                // or your desired module system
-        "strict": false,                     // enable all strict type-checking options
-        "jsx": "preserve",                 // if you are using React
+        "strict": true,                     // enable all strict type-checking options
+        "jsx": "react-jsx",                // use react-jsx for React 17+
         "moduleResolution": "node",        // resolves modules similar to Node.js
         "esModuleInterop": true,           // enable emit interoperability between CommonJS and ES Modules
         "skipLibCheck": true,              // skip type checking of declaration files

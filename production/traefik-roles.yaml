@@ -1,0 +1,45 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traefik-role
+rules:
+# Permissions for Traefik CRDs
+- apiGroups:
+  - "traefik.containo.us"
+  resources:
+  - "*"
+  verbs:
+  - "*"
+
+# Permissions for Kubernetes Ingress resources
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - "ingresses"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Permissions for Kubernetes IngressClass resources (to fix the error you're seeing)
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - "ingressclasses"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Permissions for Kubernetes Services, Endpoints, and Secrets (needed for Traefik routing)
+- apiGroups:
+  - ""
+  resources:
+  - "services"
+  - "endpoints"
+  - "secrets"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+

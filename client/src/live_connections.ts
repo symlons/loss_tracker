@@ -1,43 +1,51 @@
-import { io } from "socket.io-client";
-// TODO: define TS types
-export function handle_socket_connection(live_connection_callback) {
-  let name: string;
-  let data: { name: [] } | {} = {};
-  let name_s: string[] = [];
+import { useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
+import { SocketData, Point } from "./types";
 
-  console.log(import.meta.env.VITE_SOCKET_HOST)
-  const socket = io(import.meta.env.VITE_SOCKET_HOST, {
-    transports: ["websocket"],
-    path: "/socket/",
-  });
-  console.log("new socket testing")
-  console.log(socket);
+export function useSocket() {
+  // Data is stored as an object with keys (names) and arrays of Points
+  const [data, setData] = useState<{ [key: string]: Point[] }>({});
+  const nameSet = useRef<Set<string>>(new Set());
+  const socketRef = useRef<Socket | null>(null);
 
-  socket.on("logging", (socket: any) => {
-    name = socket.name;
-    if (name_s.length === 0) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (name_s.includes(socket.name) === false) {
-      name_s.push(name);
-      data[name] = [];
-    }
-    if (socket.xCoordinates.length === undefined) {
-      data[name].push({
-        name: Date.now(),
-        value: [socket.xCoordinates, socket.yCoordinates],
-      });
-    } else {
-      console.log(data[name]);
-      for (let i = 0; i < socket.xCoordinates.length; i++) {
-	console.log(socket.xCoordinates[i])
-        data[name].push({
-          name: Date.now(),
-          value: [socket.xCoordinates[i], socket.yCoordinates[i]],
-        });
+  useEffect(() => {
+    const socketHost = import.meta.env.VITE_SOCKET_HOST;
+    socketRef.current = io(socketHost, { transports: ["websocket"], path: "/api/socket/" });
+
+    socketRef.current.on("logging", (socketData: SocketData) => {
+      const { name, totalPoints, xCoordinates, yCoordinates } = socketData;
+
+      // If this is a new series, initialize its array.
+      if (!nameSet.current.has(name)) {
+        nameSet.current.add(name);
+        setData(prev => ({ ...prev, [name]: [] }));
       }
-    }
-    live_connection_callback({ data, name: name, name_s });
-  });
+
+      // If we've received all points for this series, reset the array.
+      if (xCoordinates.length === totalPoints) {
+        setData(prev => ({ ...prev, [name]: [] }));
+      }
+
+      // Update the series with new data points.
+      setData(prev => ({
+        ...prev,
+        [name]: [
+          ...(prev[name] || []),
+          ...xCoordinates.map((x, i) => ({
+            name: Date.now(),
+            value: [x, yCoordinates[i]] as [number, number],
+            runId: name  // (Using the series name here as runId; adjust if needed.)
+          }))
+        ]
+      }));
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  return { data, name_s: Array.from(nameSet.current) };
 }

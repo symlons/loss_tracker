@@ -1,0 +1,174 @@
+name: Minikube local testing env setup
+
+on:
+  push:
+    branches: [redo]
+  pull_request:
+    branches: [redo]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Minikube
+        uses: medyagh/setup-minikube@latest
+
+      - name: Start Minikube
+        run: |
+          minikube start --wait=all
+
+      - name: Start Minikube Tunnel
+        run: |
+          minikube tunnel &
+
+      - name: Try the cluster!
+        run: kubectl get pods -A
+
+      - name: Build image
+        run: |
+          minikube image build -t local/loss-tracker-nginx-client:latest ./production/client
+          minikube image build -t local/loss-tracker-server:latest ./production/server
+          minikube image build -t local/traefik:latest ./production/traefik
+
+      - name: Deploy to minikube
+        run: |
+          kubectl apply -f production/traefik-roles.yaml
+          kubectl apply -f production/default-service-account.yaml
+          kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.9/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+          kubectl create namespace losstracker || true
+          kubectl apply -f production/secret.yaml
+          kubectl apply -f production/full2.yaml
+
+      - name: Wait for all deployments to be ready
+        run: |
+          kubectl rollout status deployment/loss-tracker-nginx-client -n losstracker
+          kubectl rollout status deployment/loss-tracker-server -n losstracker
+          kubectl rollout status deployment/traefik -n losstracker
+
+      - name: Verify all pods are ready
+        run: |
+          READY=$(kubectl get pods -n losstracker --field-selector=status.phase=Running -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}')
+          if [[ $READY != *"True"* ]]; then
+            echo "Not all pods are ready."
+            exit 1
+          fi
+
+      - name: Debugging - Check Ingress Configuration
+        run: |
+          echo "Describing ingress configuration..."
+          kubectl describe ingress simple-ingress -n losstracker
+
+      - name: Debugging - Check Service Status
+        run: |
+          echo "Listing services in losstracker namespace..."
+          kubectl get svc -n losstracker
+          echo "Describing loss-tracker-nginx-client service..."
+          kubectl describe svc loss-tracker-nginx-client -n losstracker
+          echo "Describing load-balancer-server service..."
+          kubectl describe svc load-balancer-server -n losstracker
+
+      - name: Debugging - Check Pod Logs
+        run: |
+          echo "Fetching logs for Traefik pods..."
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik
+          echo "Fetching logs for loss-tracker-nginx-client pods..."
+          kubectl logs -n losstracker -l app=loss-tracker-nginx-client
+          echo "Fetching logs for loss-tracker-server pods..."
+          kubectl logs -n losstracker -l app=loss-tracker-server
+
+      - name: Test Traefik ingress routing for /api path
+        run: |
+          echo "Testing Traefik routing for /api path"
+          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          if [ -n "$INGRESS_EXISTS" ]; then
+            echo "Ingress found: $INGRESS_EXISTS. Proceeding to check routing for /api"
+            MINIKUBE_IP=$(minikube ip)
+            echo "Minikube IP: $MINIKUBE_IP"
+            echo "Attempting to connect to http://$MINIKUBE_IP/api with Host header 'mlstatstracker.org'"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api)
+            echo "HTTP status code received for /api: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "ERROR: Traefik routing for /api path failed. Received HTTP code: $HTTP_CODE"
+              echo "Verbose curl output:"
+              curl -v -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/api
+              exit 1
+            fi
+            echo "Traefik routing for /api path passed successfully with HTTP status 200"
+          else
+            echo "Ingress not found in namespace 'losstracker'; skipping /api path routing test"
+          fi
+
+      - name: Test Traefik ingress routing for / path
+        run: |
+          echo "Testing Traefik routing for / path"
+          INGRESS_EXISTS=$(kubectl get ingress -n losstracker --ignore-not-found -o jsonpath='{.items[0].metadata.name}')
+          if [ -n "$INGRESS_EXISTS" ]; then
+            echo "Ingress found, checking routing for client (/)"
+            MINIKUBE_IP=$(minikube ip)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: mlstatstracker.org" http://$MINIKUBE_IP/)
+            echo "HTTP status code for client (/): $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "Traefik routing for / path failed"
+              exit 1
+            fi
+            echo "Traefik routing for / path passed"
+          else
+            echo "Ingress not found; skipping / path routing test"
+          fi
+
+      - name: Debugging List all pods and get logs
+        run: |
+          echo "Listing all pods in losstracker namespace..."
+          kubectl get pods -n losstracker -o wide
+          echo "Describing all pods for detailed status..."
+          kubectl describe pods -n losstracker
+        continue-on-error: true
+
+      - name: Test Client Ingress connectivity
+        run: |
+          echo "Port-forwarding client service to localhost:8080"
+          kubectl port-forward svc/loss-tracker-nginx-client 8080:80 -n losstracker &
+          PF_PID=$!
+          sleep 10
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          echo "HTTP status code: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Client connectivity test failed"
+            kill $PF_PID
+            exit 1
+          fi
+          kill $PF_PID
+          echo "Client connectivity test passed"
+        continue-on-error: true
+
+      - name: Test API Ingress connectivity (if available)
+        run: |
+          echo "Checking for load-balancer-server service..."
+          SERVICE_EXISTS=$(kubectl get svc load-balancer-server -n losstracker --ignore-not-found)
+          if [ -n "$SERVICE_EXISTS" ]; then
+            echo "Service found, port-forwarding API service to localhost:5005"
+            kubectl port-forward svc/load-balancer-server 5005:5005 -n losstracker &
+            PF_API_PID=$!
+            sleep 10
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5005/)
+            echo "HTTP status code: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "API connectivity test failed"
+              kill $PF_API_PID
+              exit 1
+            fi
+            kill $PF_API_PID
+            echo "API connectivity test passed"
+          else
+            echo "Service load-balancer-server not found; skipping API connectivity test"
+          fi
+        continue-on-error: true
+
+      - name: Final Traefik status check
+        run: |
+          kubectl get pods -n losstracker -l app.kubernetes.io/name=traefik
+          kubectl logs -n losstracker -l app.kubernetes.io/name=traefik --tail=10
+
