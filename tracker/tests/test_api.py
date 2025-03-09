@@ -1,6 +1,6 @@
 import requests
 
-BASE_URL = "http://localhost:3005"
+BASE_URL = "http://mlstatstracker.org/api"
 
 def test_create_batch_success():
     payload = {

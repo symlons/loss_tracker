@@ -7,11 +7,8 @@ import helmet from "helmet";
 import Joi from "joi";
 import winston from "winston";
 import chalk from "chalk";
-import pkg from "lodash";
 import dotenv from "dotenv";
-import crypto from "crypto"; // Import crypto
-
-const { debounce } = pkg;
+import crypto from "crypto";
 
 if (!process.env.MONGODB_URI) {
   dotenv.config();
@@ -41,7 +38,6 @@ async function getMongoClient() {
   if (!connected) {
     logger.warn("MongoDB connection is not active");
   }
-
   return mongoClient;
 }
 
@@ -138,7 +134,7 @@ const batchSchema = Joi.object({
   name: Joi.string().required(),
   xCoordinates: Joi.array().items(Joi.number()).required(),
   yCoordinates: Joi.array().items(Joi.number()).required(),
-  runId: Joi.string().optional(), // runId is now optional
+  runId: Joi.string().optional(),
 });
 
 const querySchema = Joi.object({
@@ -154,60 +150,42 @@ app.get("/", (_, res) => {
 
 app.post("/batch", batchLimiter, async (req, res, next) => {
   try {
-    // Validate request body (as before)
     const { error } = batchSchema.validate(req.body);
     if (error) {
-      // ... (error logging and handling as before)
       return next(new CustomError(400, error.details[0].message));
     }
 
-    const { name, xCoordinates, yCoordinates, runId: incomingRunId } = req.body; // Destructure runId
-
-    const validatedXCoordinates = Array.isArray(xCoordinates)
-      ? xCoordinates
-      : [];
-    const validatedYCoordinates = Array.isArray(yCoordinates)
-      ? yCoordinates
-      : [];
-
-    // Generate a runId if one is not provided
-    const runId = incomingRunId || crypto.randomUUID(); // Use incomingRunId if provided, otherwise generate a new one
-
-    // Ensure the point structure is correct with x and y inside it
+    const { name, xCoordinates, yCoordinates, runId: incomingRunId } = req.body;
+    const runId = incomingRunId || crypto.randomUUID();
     const point = {
-      x: validatedXCoordinates.map((x) => Number(x)), // x coordinates as an array
-      y: validatedYCoordinates.map((y) => Number(y)), // y coordinates as an array
-      timestamp: new Date(), // Timestamp for when the point is created
-      runId: runId, // Include runId in the point object
+      x: validatedXCoordinates.map((x) => Number(x)),
+      y: validatedYCoordinates.map((y) => Number(y)),
+      timestamp: new Date(),
+      runId: runId,
     };
 
-    // Log the point to verify structure before updating the database
     console.log("Point to be pushed:", point.x.length);
 
     const client = await getMongoClient();
     const db = client.db("training");
 
-    // Update or insert document with upsert: true
     await db.collection("points").updateOne(
-      { name, runId }, // Use name and runId as the unique identifier
+      { name, runId },
       {
-        $push: { points: point }, // Push new point object into the points array
-        $set: { lastUpdate: new Date() }, // Update lastUpdate field
+        $push: { points: point },
+        $set: { lastUpdate: new Date() },
       },
-      { upsert: true }, // Insert document if it doesn't exist
+      { upsert: true },
     );
 
-    // Update the batch counter for the name and runId
-    const counterKey = `${name}-${runId}`; // Create a unique key for each name and runId
+    const counterKey = `${name}-${runId}`;
     batchCounter[counterKey] = (batchCounter[counterKey] || 0) + 1;
     console.log("Batch Counter:", batchCounter[counterKey]);
 
-    // Log success
     logger.info(
       `${chalk.green("✓")} Batch processed for ${chalk.blue(name)} (Run ID: ${chalk.yellow(runId)}): ${chalk.yellow(batchCounter[counterKey])} batch(es) received`,
     );
 
-    // Emit the logging payload
     const emitPayload = {
       name,
       xCoordinates: validatedXCoordinates,
@@ -215,9 +193,8 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     };
 
     io.emit("logging", emitPayload);
-    res.status(200).json({ success: true, runId: runId });
+    res.status(201).json({ success: true, runId: runId });
   } catch (error) {
-    // Log any errors that occur during the batch process
     logger.error("✗ Error in /batch endpoint", {
       error: error.message,
       stack: error.stack,
@@ -245,10 +222,9 @@ app.post("/query", async (req, res, next) => {
     const client = await getMongoClient();
     const db = client.db("training");
 
-    // Find the document with the matching name and sort by lastUpdate descending
     const result = await db
       .collection("points")
-      .findOne({ name: query_name }, { sort: { lastUpdate: -1 } });
+      .findOne({ name: query_name }, { sort: { lastUpdate: -1 } }); // sort in descending order
 
     if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
@@ -289,7 +265,7 @@ app.post("/query", async (req, res, next) => {
       runId: runId,
       points: allPoints,
       batchCount: batchCount,
-      totalPoints: totalPoints
+      totalPoints: totalPoints,
     };
 
     res.status(200).json([response]);
