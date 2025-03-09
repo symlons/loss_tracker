@@ -51,7 +51,7 @@ jobs:
       - name: Install Dependencies for Python API
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt  # Assuming requirements.txt exists
+          pip install -r pytest requests
 
       - name: Run Python API Tests
         run: |
