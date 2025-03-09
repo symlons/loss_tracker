@@ -20,5 +20,18 @@ update kube rollout for server in ci/cd
 
 curl -X POST http://mlstatstracker.org/api/query \
   -H "Content-Type: application/json" \
-  -d '{"query_name": "advanced_ml_experiment_learning_rate"}'
+  -d '{"query_name": "batch1"}'
+
+
+curl -X POST http://localhost:5005/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "batch1",
+    "xCoordinates": [1.1, 2.2, 3.3],
+    "yCoordinates": [4.4, 5.5, 6.6]
+  }'
+
+curl -X POST http://localhost:5005/query \
+  -H "Content-Type: application/json" \
+  -d '{"query_name": "batch1"}'
 

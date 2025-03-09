@@ -109,6 +109,14 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((err, req, res, next) => {
+  if (err instanceof CustomError) {
+    return res.status(err.statusCode).json({ error: err.message });
+  }
+  logger.error("✗ Error:", err.message);
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
 class CustomError extends Error {
   constructor(statusCode, message) {
     super(message);
@@ -150,7 +158,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     const { error } = batchSchema.validate(req.body);
     if (error) {
       // ... (error logging and handling as before)
-      throw new Error(`Validation Error`);
+      return next(new CustomError(400, error.details[0].message));
     }
 
     const { name, xCoordinates, yCoordinates, runId: incomingRunId } = req.body; // Destructure runId
@@ -207,9 +215,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     };
 
     io.emit("logging", emitPayload);
-
-    // Respond with success
-    res.status(200).json({ success: true, runId: runId }); // Include runId in the response
+    res.status(200).json({ success: true, runId: runId });
   } catch (error) {
     // Log any errors that occur during the batch process
     logger.error("✗ Error in /batch endpoint", {
@@ -225,7 +231,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
           : typeof req.body.yCoordinates,
       },
     });
-    next(error); // Pass error to next middleware
+    next(error);
   }
 });
 
@@ -246,7 +252,7 @@ app.post("/query", async (req, res, next) => {
 
     if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
-      return res.status(200).json(null);
+      return res.status(404).json({ error: "Batch not found" });
     }
 
     const allPoints = result.points;
@@ -262,7 +268,7 @@ app.post("/query", async (req, res, next) => {
     // Calculate total points across all batches for this runId
     let totalPoints = 0;
     for (const point of allPoints) {
-      totalPoints += point.x.length; // Assuming x and y have the same length
+      totalPoints += point.x.length;
     }
 
     const emitPayload = {
@@ -270,7 +276,7 @@ app.post("/query", async (req, res, next) => {
       xCoordinates: xCoordinates,
       yCoordinates: yCoordinates,
       batchCount: batchCount,
-      totalPoints: totalPoints, // Include total points in the emit payload
+      totalPoints: totalPoints,
       runId: runId,
     };
 
@@ -283,10 +289,10 @@ app.post("/query", async (req, res, next) => {
       runId: runId,
       points: allPoints,
       batchCount: batchCount,
-      totalPoints: totalPoints, // Include total points in the response
+      totalPoints: totalPoints
     };
 
-    res.status(200).json([response]); // Return the single batch in an array
+    res.status(200).json([response]);
   } catch (error) {
     console.log(error);
     next(error);
