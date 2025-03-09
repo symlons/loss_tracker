@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - redo
 jobs:
   build:
     runs-on: ubuntu-latest

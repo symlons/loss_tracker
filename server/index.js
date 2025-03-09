@@ -29,14 +29,9 @@ const io = new Server(httpServer, {
 
 let mongoClient;
 async function getMongoClient() {
-  if (!mongoClient || !mongoClient.topology.isConnected()) {
-    mongoClient = new MongoClient(MONGODB_URI, { useUnifiedTopology: true });
+  if (!mongoClient) {
+    mongoClient = new MongoClient(MONGODB_URI);
     await mongoClient.connect();
-  }
-
-  const connected = mongoClient.topology.isConnected();
-  if (!connected) {
-    logger.warn("MongoDB connection is not active");
   }
   return mongoClient;
 }
@@ -47,7 +42,7 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
-        winston.format.simple(),
+        winston.format.simple()
       ),
     }),
     new winston.transports.File({
@@ -60,10 +55,9 @@ const logger = winston.createLogger({
 app.use(helmet());
 app.use(express.json({ limit: "10mb" }));
 
-// Batch Limiter
 const batchLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10000,
+  max: 10000, 
   message: "Too many requests, please try again later.",
   handler: (req, res, next) => {
     logger.warn(`Rate limit exceeded for ${req.ip} on /batch`);
@@ -73,9 +67,9 @@ const batchLimiter = rateLimit({
   },
 });
 
-// Rate Limiter
+export { batchLimiter };
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 1000000,
   message: "Too many requests, please try again later.",
   handler: (req, res, next) => {
@@ -88,11 +82,9 @@ const generalLimiter = rateLimit({
 
 app.use(generalLimiter);
 
-// Logger Middleware
 app.use((req, res, next) => {
   const start = Date.now();
   logger.info(`→ ${req.method} ${req.path}`);
-
   res.on("finish", () => {
     const duration = Date.now() - start;
     const status = res.statusCode;
@@ -101,35 +93,9 @@ app.use((req, res, next) => {
       message: `${status} ${duration}ms ${req.path}`,
     });
   });
-
   next();
 });
 
-app.use((err, req, res, next) => {
-  if (err instanceof CustomError) {
-    return res.status(err.statusCode).json({ error: err.message });
-  }
-  logger.error("✗ Error:", err.message);
-  res.status(500).json({ error: "Internal Server Error" });
-});
-
-class CustomError extends Error {
-  constructor(statusCode, message) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
-
-app.use((err, req, res, next) => {
-  if (err instanceof CustomError) {
-    res.status(err.statusCode).json({ error: err.message });
-  } else {
-    logger.error("✗ Error:", err.message);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Joi Schemas for validation
 const batchSchema = Joi.object({
   name: Joi.string().required(),
   xCoordinates: Joi.array().items(Joi.number()).required(),
@@ -141,7 +107,6 @@ const querySchema = Joi.object({
   query_name: Joi.string().required(),
 });
 
-// In-memory batch counter per name
 let batchCounter = {};
 
 app.get("/", (_, res) => {
@@ -157,6 +122,14 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
 
     const { name, xCoordinates, yCoordinates, runId: incomingRunId } = req.body;
     const runId = incomingRunId || crypto.randomUUID();
+
+    const validatedXCoordinates = Array.isArray(xCoordinates)
+      ? xCoordinates
+      : [];
+    const validatedYCoordinates = Array.isArray(yCoordinates)
+      ? yCoordinates
+      : [];
+
     const point = {
       x: validatedXCoordinates.map((x) => Number(x)),
       y: validatedYCoordinates.map((y) => Number(y)),
@@ -175,7 +148,7 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
         $push: { points: point },
         $set: { lastUpdate: new Date() },
       },
-      { upsert: true },
+      { upsert: true }
     );
 
     const counterKey = `${name}-${runId}`;
@@ -183,7 +156,9 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
     console.log("Batch Counter:", batchCounter[counterKey]);
 
     logger.info(
-      `${chalk.green("✓")} Batch processed for ${chalk.blue(name)} (Run ID: ${chalk.yellow(runId)}): ${chalk.yellow(batchCounter[counterKey])} batch(es) received`,
+      `${chalk.green("✓")} Batch processed for ${chalk.blue(name)} (Run ID: ${chalk.yellow(
+        runId
+      )}): ${chalk.yellow(batchCounter[counterKey])} batch(es) received`
     );
 
     const emitPayload = {
@@ -215,8 +190,11 @@ app.post("/batch", batchLimiter, async (req, res, next) => {
 app.post("/query", async (req, res, next) => {
   try {
     const { error } = querySchema.validate(req.body);
-    if (error) throw new Error(error.details[0].message);
+    if (error) throw new CustomError(400, error.details[0].message);
 
+    if (!req.body.query_name) {
+      return res.status(400).json({ error: '"query_name" is required' });
+    }
     const { query_name } = req.body;
     logger.info("Searching for:", query_name, " - Most Recent Run");
     const client = await getMongoClient();
@@ -224,7 +202,7 @@ app.post("/query", async (req, res, next) => {
 
     const result = await db
       .collection("points")
-      .findOne({ name: query_name }, { sort: { lastUpdate: -1 } }); // sort in descending order
+      .findOne({ name: query_name }, { sort: { lastUpdate: -1 } });
 
     if (!result) {
       logger.info(`✓ Query successful: ${query_name} - not found`);
@@ -241,7 +219,6 @@ app.post("/query", async (req, res, next) => {
     const counterKey = `${query_name}-${runId}`;
     const batchCount = batchCounter[counterKey] || 0;
 
-    // Calculate total points across all batches for this runId
     let totalPoints = 0;
     for (const point of allPoints) {
       totalPoints += point.x.length;
@@ -275,9 +252,23 @@ app.post("/query", async (req, res, next) => {
   }
 });
 
+class CustomError extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+app.use((err, req, res, next) => {
+  if (err instanceof CustomError) {
+    return res.status(err.statusCode).json({ error: err.message });
+  }
+  logger.error("✗ Error:", err.message);
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
 io.on("connection", (socket) => {
   logger.info(`✓ Socket connected: ${socket.id}`);
-
   socket.on("disconnect", () => {
     logger.info(`○ Socket disconnected: ${socket.id}`);
   });
@@ -301,3 +292,5 @@ process.on("SIGINT", async () => {
     process.exit(1);
   }
 });
+
+export default app;
