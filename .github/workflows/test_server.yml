@@ -55,5 +55,5 @@ jobs:
 
       - name: Run Python API Tests
         run: |
-          pytest path/to/your/python/tests --maxfail=1 --disable-warnings -q
+          pytest tests/python_api_test.py --maxfail=1 --disable-warnings -q
 
