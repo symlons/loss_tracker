@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import request from "supertest";
-import app, { batchLimiter } from "../index.js"; // Import batchLimiter to reset its store
+import app from "../index.js"; // Assuming your app is exported from index.js
 
 // Reset the rate limiter store after each test to avoid cross-test interference.
 afterEach(() => {
-  if (batchLimiter && batchLimiter.store && typeof batchLimiter.store.resetAll === "function") {
-    batchLimiter.store.resetAll();
+  if (app.batchLimiter && app.batchLimiter.store && typeof app.batchLimiter.store.resetAll === "function") {
+    app.batchLimiter.store.resetAll();
   }
 });
 
@@ -25,7 +25,7 @@ describe("API Endpoints", () => {
 
     const invalidBatchData = {
       name: "testBatch",
-      xCoordinates: [1, 2, 3] // Missing yCoordinates
+      xCoordinates: [1, 2, 3]  // Missing yCoordinates
     };
 
     it("should return 201 for valid batch data", async () => {
@@ -38,10 +38,8 @@ describe("API Endpoints", () => {
     it("should return 400 for invalid batch data", async () => {
       const response = await request(app).post("/batch").send(invalidBatchData);
       expect(response.status).toBe(400);
-      // Expect an error message in the response body
       expect(response.body.error).toBeDefined();
     });
-
   });
 
   describe("POST /query", () => {
