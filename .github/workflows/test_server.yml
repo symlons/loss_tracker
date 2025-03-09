@@ -54,6 +54,7 @@ jobs:
           pip install pytest requests
 
       - name: Run Python API Tests
+        working-directory: ./server
         run: |
           pytest tests/python_api_test.py --maxfail=1 --disable-warnings -q
 
